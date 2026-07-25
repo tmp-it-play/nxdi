@@ -473,7 +473,7 @@ export function AdminHoldingForm({
             <h3 id={`holding-modal-title-${symbol ?? "new"}`}>{modalTitle}</h3>
             <p>
               {symbol
-                ? `${stockPrimaryLabel({ symbol, name, alias, marketCountry, currency })} · 보유값은 아래 수량 조정으로 변경합니다.`
+                ? `${stockPrimaryLabel({ symbol, name, alias, marketCountry, currency })} · 종목 정보와 현재가를 수정하거나 거래를 반영합니다.`
                 : "검색 결과를 선택하고 현재 초기 보유값을 입력합니다."}
             </p>
           </div>
@@ -534,17 +534,61 @@ export function AdminHoldingForm({
             </div>
           ) : null}
 
+          {symbol ? (
+            <section
+              aria-labelledby={`holding-current-title-${symbol}`}
+              className="holding-current-panel"
+            >
+              <header>
+                <h4 id={`holding-current-title-${symbol}`}>현재 등록·보유 정보</h4>
+                <p>심볼·시장·통화는 등록 기준이며, 보유값은 아래 매수·매도·증여 반영에 따라 계산됩니다.</p>
+              </header>
+              <dl className="holding-current-grid">
+                <div>
+                  <dt>심볼</dt>
+                  <dd>{symbol}</dd>
+                </div>
+                <div>
+                  <dt>시장 · 통화</dt>
+                  <dd>{marketLabel(marketCountry)} · {currency}</dd>
+                </div>
+                <div>
+                  <dt>보유 수량</dt>
+                  <dd>{formatHoldingNumber(quantity)}주</dd>
+                </div>
+                <div>
+                  <dt>평균 매수가</dt>
+                  <dd>{formatHoldingCurrency(averagePurchasePrice, currency, 6)}</dd>
+                </div>
+                {currency === "USD" ? (
+                  <div>
+                    <dt>평균 매입환율</dt>
+                    <dd>{formatHoldingCurrency(purchaseExchangeRate, "KRW", 2)}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            </section>
+          ) : null}
+
           <div className="holding-modal-grid">
-            <Field htmlFor={`symbol-${symbol ?? "new"}`} label="심볼">
-              <input
-                id={`symbol-${symbol ?? "new"}`}
-                name="symbol"
-                value={form.symbol}
-                readOnly={Boolean(symbol)}
-                onChange={(event) => setForm((current) => ({ ...current, symbol: event.target.value }))}
-                required
-              />
-            </Field>
+            {symbol ? (
+              <>
+                <input name="symbol" type="hidden" value={form.symbol} />
+                <input name="marketCountry" type="hidden" value={form.marketCountry} />
+                <input name="currency" type="hidden" value={form.currency} />
+                <input name="quantity" type="hidden" value="0" />
+              </>
+            ) : (
+              <Field htmlFor="symbol-new" label="심볼">
+                <input
+                  id="symbol-new"
+                  name="symbol"
+                  value={form.symbol}
+                  onChange={(event) => setForm((current) => ({ ...current, symbol: event.target.value }))}
+                  required
+                />
+              </Field>
+            )}
             <Field htmlFor={`name-${symbol ?? "new"}`} label="종목명" wide>
               <input
                 id={`name-${symbol ?? "new"}`}
@@ -580,57 +624,56 @@ export function AdminHoldingForm({
                 <option value="HIGH">고위험</option>
               </TdsSelect>
             </Field>
-            <Field htmlFor={`market-${symbol ?? "new"}`} label="시장">
-              {symbol ? <input name="marketCountry" type="hidden" value={form.marketCountry} /> : null}
-              <TdsSelect
-                id={`market-${symbol ?? "new"}`}
-                name={symbol ? undefined : "marketCountry"}
-                value={form.marketCountry}
-                disabled={Boolean(symbol)}
-                onChange={(event) => {
-                  const marketCountry = event.target.value as MarketCode;
-                  setForm((current) => ({
-                    ...current,
-                    marketCountry,
-                    currency: currencyFromMarket(marketCountry)
-                  }));
-                }}
-              >
-                <option value="NASDAQ">나스닥</option>
-                <option value="NYSE">뉴욕증권거래소</option>
-                <option value="AMEX">아메리칸증권거래소</option>
-                <option value="KOSPI">유가증권시장</option>
-                <option value="KOSDAQ">코스닥시장</option>
-              </TdsSelect>
-            </Field>
-            <Field htmlFor={`currency-${symbol ?? "new"}`} label="통화">
-              {symbol ? <input name="currency" type="hidden" value={form.currency} /> : null}
-              <TdsSelect
-                id={`currency-${symbol ?? "new"}`}
-                name={symbol ? undefined : "currency"}
-                value={form.currency}
-                disabled={Boolean(symbol)}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, currency: event.target.value as "KRW" | "USD" }))
-                }
-              >
-                <option value="USD">USD</option>
-                <option value="KRW">KRW</option>
-              </TdsSelect>
-            </Field>
-            <Field htmlFor={`quantity-${symbol ?? "new"}`} label={symbol ? "보유 수량(아래에서 조정)" : "초기 보유 수량"}>
-              <input
-                id={`quantity-${symbol ?? "new"}`}
-                name="quantity"
-                type="number"
-                step="0.000001"
-                min="0"
-                value={form.quantity}
-                disabled={Boolean(symbol)}
-                onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))}
-                required
-              />
-            </Field>
+            {!symbol ? (
+              <>
+                <Field htmlFor="market-new" label="시장">
+                  <TdsSelect
+                    id="market-new"
+                    name="marketCountry"
+                    value={form.marketCountry}
+                    onChange={(event) => {
+                      const marketCountry = event.target.value as MarketCode;
+                      setForm((current) => ({
+                        ...current,
+                        marketCountry,
+                        currency: currencyFromMarket(marketCountry)
+                      }));
+                    }}
+                  >
+                    <option value="NASDAQ">나스닥</option>
+                    <option value="NYSE">뉴욕증권거래소</option>
+                    <option value="AMEX">아메리칸증권거래소</option>
+                    <option value="KOSPI">유가증권시장</option>
+                    <option value="KOSDAQ">코스닥시장</option>
+                  </TdsSelect>
+                </Field>
+                <Field htmlFor="currency-new" label="통화">
+                  <TdsSelect
+                    id="currency-new"
+                    name="currency"
+                    value={form.currency}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, currency: event.target.value as "KRW" | "USD" }))
+                    }
+                  >
+                    <option value="USD">USD</option>
+                    <option value="KRW">KRW</option>
+                  </TdsSelect>
+                </Field>
+                <Field htmlFor="quantity-new" label="초기 보유 수량">
+                  <input
+                    id="quantity-new"
+                    name="quantity"
+                    type="number"
+                    step="0.000001"
+                    min="0"
+                    value={form.quantity}
+                    onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))}
+                    required
+                  />
+                </Field>
+              </>
+            ) : null}
             <Field htmlFor={`price-${symbol ?? "new"}`} label={`현재가 (${currencySymbol(form.currency)})`}>
               <FormattedNumberInput
                 allowDecimal
@@ -643,36 +686,37 @@ export function AdminHoldingForm({
                 required
               />
             </Field>
-            <Field
-              htmlFor={`avg-${symbol ?? "new"}`}
-              label={`${symbol ? "평단(아래에서 조정)" : "초기 평단"} (${currencySymbol(form.currency)})`}
-            >
-              <FormattedNumberInput
-                allowDecimal
-                id={`avg-${symbol ?? "new"}`}
-                name="averagePurchasePrice"
-                step="0.000001"
-                min="0"
-                value={form.averagePurchasePrice}
-                disabled={Boolean(symbol) || !hasOpeningQuantity}
-                onValueChange={(value) => setForm((current) => ({ ...current, averagePurchasePrice: value }))}
-                required={hasOpeningQuantity}
-              />
-            </Field>
-            <Field htmlFor={`purchase-fx-${symbol ?? "new"}`} label="매입환율 (₩)">
-              <FormattedNumberInput
-                allowDecimal
-                id={`purchase-fx-${symbol ?? "new"}`}
-                name="purchaseExchangeRate"
-                step="0.01"
-                min="500"
-                max="3000"
-                value={form.purchaseExchangeRate}
-                disabled={form.currency !== "USD" || Boolean(symbol) || !hasOpeningQuantity}
-                onValueChange={(value) => setForm((current) => ({ ...current, purchaseExchangeRate: value }))}
-                required={hasOpeningQuantity && form.currency === "USD"}
-              />
-            </Field>
+            {!symbol ? (
+              <>
+                <Field htmlFor="avg-new" label={`초기 평단 (${currencySymbol(form.currency)})`}>
+                  <FormattedNumberInput
+                    allowDecimal
+                    id="avg-new"
+                    name="averagePurchasePrice"
+                    step="0.000001"
+                    min="0"
+                    value={form.averagePurchasePrice}
+                    disabled={!hasOpeningQuantity}
+                    onValueChange={(value) => setForm((current) => ({ ...current, averagePurchasePrice: value }))}
+                    required={hasOpeningQuantity}
+                  />
+                </Field>
+                <Field htmlFor="purchase-fx-new" label="매입환율 (₩)">
+                  <FormattedNumberInput
+                    allowDecimal
+                    id="purchase-fx-new"
+                    name="purchaseExchangeRate"
+                    step="0.01"
+                    min="500"
+                    max="3000"
+                    value={form.purchaseExchangeRate}
+                    disabled={form.currency !== "USD" || !hasOpeningQuantity}
+                    onValueChange={(value) => setForm((current) => ({ ...current, purchaseExchangeRate: value }))}
+                    required={hasOpeningQuantity && form.currency === "USD"}
+                  />
+                </Field>
+              </>
+            ) : null}
           </div>
 
           {symbol ? (

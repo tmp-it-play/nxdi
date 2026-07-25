@@ -3092,6 +3092,63 @@ button.holding-modal-close {
   grid-column: 1 / -1;
 }
 
+.holding-current-panel {
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--tds-radius-lg);
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.holding-current-panel > header {
+  background: var(--surface-muted);
+  padding: var(--tds-space-3);
+}
+
+.holding-current-panel h4 {
+  font-size: var(--tds-text-md);
+  font-weight: 800;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.holding-current-panel header p {
+  color: var(--muted);
+  font-size: var(--tds-text-xs);
+  font-weight: 600;
+  line-height: 1.55;
+  margin: var(--tds-space-1) 0 0;
+}
+
+.holding-current-grid {
+  background: var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  margin: 0;
+}
+
+.holding-current-grid div {
+  background: var(--surface);
+  min-width: 0;
+  padding: var(--tds-space-3);
+}
+
+.holding-current-grid dt {
+  color: var(--muted);
+  font-size: var(--tds-text-xs);
+  font-weight: 700;
+}
+
+.holding-current-grid dd {
+  font-size: var(--tds-text-md);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+}
+
 .holding-trade-panel {
   background: var(--surface-muted);
   border: 1px solid var(--line);
