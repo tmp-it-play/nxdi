@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
-import { CertificatePrintActions } from "./CertificatePrintActions";
+import { CertificatePrintActions } from "@/app/admin/CertificatePrintActions";
 import { getAdminDashboard } from "@/lib/api";
 import { FUND_KOREAN_NAME, FUND_NAME, FUND_TICKER } from "@/lib/brand";
 
@@ -70,7 +70,10 @@ export default async function MonthlyDividendCertificatePage({ params }: Certifi
 
   return (
     <main className="certificate-page">
-      <CertificatePrintActions printFileNamePrefix={printFileNamePrefix} />
+      <CertificatePrintActions
+        backHref="/admin#admin-monthly-dividends"
+        printFileNamePrefix={printFileNamePrefix}
+      />
 
       <article aria-labelledby="certificate-title" className="certificate-sheet">
         <header className="certificate-form-header">

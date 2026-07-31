@@ -241,7 +241,20 @@ export default async function AdminPage() {
             </tr>
           }
           label="운영 포트폴리오 페이지"
-          panelHeader={<h2>보유 종목</h2>}
+          panelHeader={
+            <div className="admin-panel-header">
+              <h2>보유 종목</h2>
+              <Link
+                aria-label="운영종목 보유확인서 발급"
+                className="button secondary portfolio-certificate-link"
+                href="/admin/portfolio/certificate"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                보유확인서 발급
+              </Link>
+            </div>
+          }
           pageSize={ADMIN_PORTFOLIO_PAGE_SIZE}
           search={{
             ariaLabel: "운영 포트폴리오 종목 검색",

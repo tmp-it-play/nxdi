@@ -2073,6 +2073,12 @@ button.investment-intake-paused:disabled {
   white-space: nowrap;
 }
 
+.portfolio-certificate-link {
+  min-height: var(--tds-control-sm);
+  padding: 0 var(--tds-space-3);
+  white-space: nowrap;
+}
+
 .monthly-dividend-form {
   width: 100%;
 }
@@ -2782,6 +2788,149 @@ button.investment-intake-paused:disabled {
   font-size: 6.5pt;
   margin-top: 3mm;
   padding-top: 0;
+}
+
+.portfolio-certificate-pages {
+  display: grid;
+  gap: 24px;
+}
+
+.portfolio-certificate-sheet {
+  break-after: page;
+}
+
+.portfolio-certificate-sheet:last-child {
+  break-after: auto;
+}
+
+.portfolio-holdings-section {
+  margin-top: 5mm;
+}
+
+.portfolio-certificate-table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.portfolio-certificate-table th,
+.portfolio-certificate-table td {
+  border: 1px solid var(--certificate-line);
+  color: var(--certificate-ink);
+  font-size: 6.7pt;
+  height: 6.2mm;
+  line-height: 1.25;
+  padding: 1.1mm 1.2mm;
+  text-align: center;
+  white-space: normal;
+}
+
+.portfolio-certificate-table th {
+  background: #eceef1;
+  font-size: 6.5pt;
+  font-weight: 800;
+}
+
+.portfolio-certificate-table th:nth-child(1) { width: 5%; }
+.portfolio-certificate-table th:nth-child(2) { width: 22%; }
+.portfolio-certificate-table th:nth-child(3) { width: 12%; }
+.portfolio-certificate-table th:nth-child(4) { width: 10%; }
+.portfolio-certificate-table th:nth-child(5) { width: 12%; }
+.portfolio-certificate-table th:nth-child(6) { width: 13%; }
+.portfolio-certificate-table th:nth-child(7) { width: 17%; }
+.portfolio-certificate-table th:nth-child(8) { width: 9%; }
+
+.portfolio-certificate-table td:nth-child(2) {
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.portfolio-certificate-table td:nth-child(5),
+.portfolio-certificate-table td:nth-child(6),
+.portfolio-certificate-table td:nth-child(7),
+.portfolio-certificate-table td:nth-child(8) {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.portfolio-certificate-table strong,
+.portfolio-certificate-table small {
+  display: block;
+}
+
+.portfolio-certificate-table small {
+  color: var(--certificate-muted);
+  font-size: 5.6pt;
+  margin-top: 0.4mm;
+}
+
+.portfolio-certificate-table tfoot th,
+.portfolio-certificate-table tfoot td {
+  background: #eceef1;
+  font-weight: 800;
+}
+
+.portfolio-record-details > div {
+  min-height: 8mm;
+}
+
+.portfolio-record-details dt,
+.portfolio-record-details dd {
+  font-size: 7.2pt;
+  padding-bottom: 1.5mm;
+  padding-top: 1.5mm;
+}
+
+.portfolio-record-details .certificate-record-id {
+  font-size: 5.7pt !important;
+  word-break: break-all;
+}
+
+.portfolio-certificate-approval > p {
+  font-size: 8.5pt;
+  line-height: 1.65;
+  margin: 6mm auto 2.5mm;
+}
+
+.portfolio-certificate-approval .certificate-issuer {
+  margin-top: 3mm;
+  min-height: 13mm;
+}
+
+.portfolio-certificate-notice {
+  margin-top: 3mm;
+  padding: 2mm 3mm;
+}
+
+.portfolio-certificate-notice ul {
+  gap: 0.3mm;
+}
+
+.portfolio-certificate-notice li {
+  font-size: 6.2pt;
+  line-height: 1.35;
+}
+
+.portfolio-certificate-footer {
+  margin-top: auto;
+  padding-top: 2mm;
+}
+
+@media print {
+  .portfolio-certificate-pages {
+    display: block;
+  }
+
+  .portfolio-certificate-sheet {
+    break-after: page;
+    page-break-after: always;
+    page-break-inside: avoid;
+  }
+
+  .portfolio-certificate-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
 }
 
 .symbol-search {

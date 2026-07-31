@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 
 type CertificatePrintActionsProps = {
+  backHref: string;
   printFileNamePrefix: string;
 };
 
@@ -62,7 +63,10 @@ async function printCertificate(printFileNamePrefix: string) {
   window.print();
 }
 
-export function CertificatePrintActions({ printFileNamePrefix }: CertificatePrintActionsProps) {
+export function CertificatePrintActions({
+  backHref,
+  printFileNamePrefix
+}: CertificatePrintActionsProps) {
   const didRequestPrint = useRef(false);
 
   useEffect(() => {
@@ -74,7 +78,7 @@ export function CertificatePrintActions({ printFileNamePrefix }: CertificatePrin
 
   return (
     <nav aria-label="확인서 작업" className="certificate-actions">
-      <Link className="button ghost" href="/admin#admin-monthly-dividends">
+      <Link className="button ghost" href={backHref}>
         <ArrowLeft aria-hidden="true" size={16} />
         관리자
       </Link>

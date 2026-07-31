@@ -19,7 +19,8 @@ import {
   RowMeta,
   SectionHeader,
   TextLink,
-  Top
+  Top,
+  type CompositionChartItem
 } from "@/app/components/tds";
 import { getHome } from "@/lib/api";
 import { FLASH_COOKIE_NAME, getFlashMessages } from "@/lib/flash";
@@ -27,6 +28,7 @@ import { formatDateTime, formatKrw, formatNumber } from "@/lib/format";
 import { stockFullLabel, stockPrimaryLabel, stockSecondaryLabel } from "@/lib/stock-display";
 
 const HOME_HOLDINGS_PAGE_SIZE = 8;
+const PORTFOLIO_CHART_TOP_HOLDINGS = 19;
 
 function formatPercent(value?: number) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "-";
@@ -62,9 +64,12 @@ export default async function Home() {
     holdingCharts
   } = home;
   const currentDividendYield = portfolioDividend.dividendYield;
-  const portfolioAllocation = [...portfolio.holdings]
+  const sortedPortfolioAllocation = [...portfolio.holdings]
     .filter((holding) => holding.marketValueKrw > 0)
-    .sort((a, b) => b.marketValueKrw - a.marketValueKrw)
+    .sort((a, b) => b.marketValueKrw - a.marketValueKrw || a.symbol.localeCompare(b.symbol));
+  const otherPortfolioAllocation = sortedPortfolioAllocation.slice(PORTFOLIO_CHART_TOP_HOLDINGS);
+  const portfolioAllocation: CompositionChartItem[] = sortedPortfolioAllocation
+    .slice(0, PORTFOLIO_CHART_TOP_HOLDINGS)
     .map((holding) => ({
       id: holding.symbol,
       label: stockPrimaryLabel(holding),
@@ -72,6 +77,15 @@ export default async function Home() {
       href: `/stocks/${encodeURIComponent(holding.symbol)}`,
       value: holding.marketValueKrw
     }));
+  if (otherPortfolioAllocation.length > 0) {
+    portfolioAllocation.push({
+      id: "__other__",
+      label: "기타",
+      description: `${otherPortfolioAllocation.length}개 종목 합산`,
+      href: undefined,
+      value: otherPortfolioAllocation.reduce((sum, holding) => sum + holding.marketValueKrw, 0)
+    });
+  }
   return (
     <AppShell className="home-shell">
       <ToastStack messages={flashMessages} clearCookieName={FLASH_COOKIE_NAME} />
