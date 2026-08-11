@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
+import { RecordMonthlyDividendService } from "../application/record-monthly-dividend-service.js";
 import { isAdminUser } from "../auth/admin.js";
 import { requestUser } from "../auth/session.js";
 import {
@@ -20,6 +21,7 @@ import {
   applyManualHoldingTrade,
   deleteManualHolding,
   finalizePortfolioDailySnapshot,
+  readMonthEndPortfolioMarketValueKrw,
   refreshPortfolioMarketSnapshot,
   upsertManualHolding
 } from "../infrastructure/portfolio-store.js";
@@ -133,6 +135,11 @@ function prismaCode(error: unknown) {
   if (typeof error === "object" && error !== null && "code" in error) return String(error.code);
   return undefined;
 }
+
+const recordMonthlyDividend = new RecordMonthlyDividendService({
+  readReferenceMarketValueKrw: readMonthEndPortfolioMarketValueKrw,
+  save: upsertMonthlyDividendRecord
+});
 
 export async function registerAdminRoutes(app: FastifyInstance) {
   app.post("/api/admin/status", async (request, reply) => {
@@ -266,10 +273,13 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       actualDividendKrw: z.coerce.number().int().nonnegative()
     }).safeParse(formBody(request));
     if (!parsed.success) return adminError(reply, "invalid_monthly_dividend");
-    await upsertMonthlyDividendRecord({
+    const result = await recordMonthlyDividend.execute({
       dividendMonth: parsed.data.dividendMonth,
       actualDividendKrw: parsed.data.actualDividendKrw
     });
+    if (result.status === "month_end_snapshot_required") {
+      return adminError(reply, "month_end_snapshot_required");
+    }
     return adminSuccess(reply, "monthly-dividend-updated", "월별 실배당 합계가 저장되었습니다");
   });
 

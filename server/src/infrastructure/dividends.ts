@@ -256,16 +256,16 @@ export async function readMonthlyDividendRecords(limit = 36): Promise<MonthlyDiv
 export async function upsertMonthlyDividendRecord(record: {
   dividendMonth: string;
   actualDividendKrw: number;
-  referenceMarketValueKrw?: number;
+  referenceMarketValueKrw: number;
 }) {
   const dividendMonth = normalizeDividendMonth(record.dividendMonth);
   if (!dividendMonth) throw new Error("Invalid dividend month");
 
   const actualDividendKrw = Math.max(0, Math.round(record.actualDividendKrw));
-  const referenceMarketValueKrw =
-    typeof record.referenceMarketValueKrw === "number" && record.referenceMarketValueKrw > 0
-      ? record.referenceMarketValueKrw
-      : undefined;
+  if (!Number.isFinite(record.referenceMarketValueKrw) || record.referenceMarketValueKrw <= 0) {
+    throw new Error("Invalid reference market value");
+  }
+  const referenceMarketValueKrw = record.referenceMarketValueKrw;
 
   await prisma.monthlyDividendRecord.upsert({
     where: { dividendMonth },

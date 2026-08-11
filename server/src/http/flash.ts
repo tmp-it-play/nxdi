@@ -6,7 +6,8 @@ export type FlashMessage = { id: string; title: string; description?: string; to
 const errors: Record<string, string> = {
   terms_required: "약관 동의가 필요합니다",
   dividend_policy_required: "배당 정책 확인 동의가 필요합니다",
-  invalid_monthly_dividend: "배당월, 증권사 월 실배당 합계와 외부 기록 근거를 확인해주세요",
+  invalid_monthly_dividend: "배당월과 월 실배당 합계를 확인해주세요",
+  month_end_snapshot_required: "선택한 배당월의 확정 월말 평가금액 스냅샷이 필요합니다",
   invalid_intent_cancel: "철회할 수 있는 본인 의향서를 확인해주세요",
   investment_intake_paused: "현재 외부 투자 접수를 일시 중단했습니다",
   login_required: "로그인이 필요합니다",

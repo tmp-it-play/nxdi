@@ -7,6 +7,10 @@ import {
 } from "../application/apply-holding-trade-service.js";
 import { PortfolioSnapshotService } from "../application/portfolio-snapshot-service.js";
 import { holdingInitialState } from "../domain/holding-initial-state.js";
+import {
+  confirmedMonthEndPortfolioMarketValueKrw,
+  monthEndReferencePeriod
+} from "../domain/month-end-portfolio-market-value.js";
 import { holdingCostBasisKrw } from "../domain/portfolio-math.js";
 import { mapWithConcurrency } from "./concurrency.js";
 import { summarizePortfolioDividend } from "./dividends.js";
@@ -366,6 +370,28 @@ export async function getManualPortfolioOverview(): Promise<PortfolioOverview> {
     dailySnapshots,
     holdings: store.holdings
   };
+}
+
+export async function readMonthEndPortfolioMarketValueKrw(dividendMonth: string) {
+  const period = monthEndReferencePeriod(dividendMonth);
+  if (!period) return undefined;
+
+  const [snapshot, latestTradeRecord] = await Promise.all([
+    prisma.portfolioDailySnapshot.findUnique({
+      where: { snapshotDate: period.snapshotDate }
+    }),
+    prisma.portfolioTradeExecution.findFirst({
+      where: { executedAt: { lt: period.closedAfter } },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true }
+    })
+  ]);
+
+  return confirmedMonthEndPortfolioMarketValueKrw({
+    period,
+    snapshot,
+    latestTradeCreatedAt: latestTradeRecord?.createdAt
+  });
 }
 
 export async function readPortfolioMarketValueKrw() {
