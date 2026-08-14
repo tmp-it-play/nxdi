@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { AuthNavActions } from "@/app/components/auth-actions";
 import { RiskBadge } from "@/app/components/risk-badge";
-import { CandleChart } from "@/app/components/stock-chart";
+import { CandleChart } from "@/app/components/candle-chart";
 import {
   AppShell,
   Grid,
@@ -140,6 +140,7 @@ export default async function StockDetailPage({ params }: StockDetailProps) {
             candles={returnCandles}
             size="detail"
             valueFormat="percent"
+            dateGranularity="month"
           />
         </Panel>
         <Panel className="metric-detail-panel">
@@ -150,6 +151,7 @@ export default async function StockDetailPage({ params }: StockDetailProps) {
             candles={yieldCandles}
             size="detail"
             valueFormat="percent"
+            dateGranularity="month"
           />
         </Panel>
       </Grid>

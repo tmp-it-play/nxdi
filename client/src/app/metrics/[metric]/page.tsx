@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { AuthNavActions } from "@/app/components/auth-actions";
-import { CandleChart } from "@/app/components/stock-chart";
+import { CandleChart } from "@/app/components/candle-chart";
 import {
   AppShell,
   Grid,
@@ -102,8 +102,6 @@ export default async function MetricDetailPage({ params }: MetricDetailProps) {
         size="detail"
         valueFormat={valueFormat}
         dateGranularity={metric === "dividend-yield" ? "month" : "day"}
-        minBodyHeight={metric === "daily-change" ? 5 : undefined}
-        bodyRadius={metric === "daily-change" ? 1 : undefined}
       />
 
       <SectionHeader title="계산 기준" description="관리자 포트폴리오, 시장 가격, 일별 평가금액 스냅샷을 조합한 값입니다." />

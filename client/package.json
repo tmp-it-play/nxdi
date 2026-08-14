@@ -15,6 +15,7 @@
     "verify": "npm run lint && npm run typecheck && npm run test:unit"
   },
   "dependencies": {
+    "lightweight-charts": "5.2.1",
     "lucide-react": "^0.468.0",
     "next": "^15.1.3",
     "react": "^19.0.0",
