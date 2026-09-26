@@ -73,7 +73,7 @@ jobs:
           user: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           source_path: server
-          target_path: /Users/snowykte0426/deploy/nxdi
+          target_path: /Users/snowykte0426/Downloads/nxdi
           deployspec_path: server/deploy/deployspec.yml
 
       - name: Remove runtime environment

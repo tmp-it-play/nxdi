@@ -7,7 +7,7 @@ require_command docker
 
 MYSQL_CONTAINER="${NXDI_MYSQL_CONTAINER:-mysql}"
 DATABASE_NAME="${NXDI_DATABASE_NAME:-nxdi}"
-BACKUP_DIR="${NXDI_BACKUP_DIR:-${HOME}/deploy/nxdi-backups}"
+BACKUP_DIR="${NXDI_BACKUP_DIR:-${HOME}/Downloads/nxdi-backups}"
 
 legacy_tables=(
   "PortfolioHolding"

@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-APP_DIR="${NXDI_DEPLOY_DIR:-${HOME}/deploy/nxdi}"
+APP_DIR="${NXDI_DEPLOY_DIR:-${HOME}/Downloads/nxdi}"
 COMPOSE_FILE="${APP_DIR}/deploy/compose.yml"
 
 require_command() {
