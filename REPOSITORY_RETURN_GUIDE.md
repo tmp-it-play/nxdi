@@ -31,28 +31,33 @@ git switch --no-track -c update/example-change origin/main
 
 PR 대상은 `tmp-it-play/nxdi`의 `main`입니다. 임시 저장소는 원래 저장소의 포크이므로 GitHub CLI를 직접 사용할 때도 `--repo tmp-it-play/nxdi`를 지정합니다. 루트 `AGENTS.md`와 커밋·PR 스킬에 임시 규칙이 있고, PR 생성 스크립트도 `origin` 주소에 따라 저장소와 `main`을 선택합니다. HTTPS와 일반 SSH 주소의 `.git` 접미사 유무를 지원합니다.
 
-## 배포 연결 확인 결과 및 이전 시 남은 작업
+## 배포 연결 상태 및 이전 시 남은 작업
 
 `origin` 변경만으로 Vercel의 Git 연결이나 GitHub Actions의 Secret·환경 설정이 옮겨지지는 않습니다. Vercel Git 연결은 [프로젝트 Git 설정](https://vercel.com/snowykte0426s-projects/nxdi/settings/git)에서 별도로 변경합니다([Vercel 공식 안내](https://vercel.com/docs/git/vercel-for-github)).
 
-2026-09-28 확인 결과는 다음과 같습니다. 아래는 당시 상태이며, 배포 연결 이전을 완료했다는 기록이 아닙니다.
+2026-09-28 Vercel 연결 변경과 운영 재배포를 완료했습니다. 당시 확인 결과는 다음과 같습니다. GitHub Actions를 통한 서버 자동 배포 준비는 별도 확인이 남아 있습니다.
 
 | 항목 | 확인 결과 |
 | --- | --- |
 | Vercel 프로젝트 | 기존 `snowykte0426s-projects/nxdi` 프로젝트 사용 |
-| Vercel Git 연결 | 여전히 `it-play/nxdi`, `Project Link not found` 오류 표시 |
-| 현재 운영 배포 | `Ready`, 원래 저장소 `main`의 `b5adbcb` 커밋, 2026-08-14 생성 |
+| Vercel GitHub 앱 | `tmp-it-play/nxdi` 한 저장소만 선택하여 설치 |
+| Vercel Git 연결 | `tmp-it-play/nxdi` 연결 완료, 기존 `Project Link not found` 오류 해소 |
+| 빌드 설정 | 루트 `client`, Next.js, Node.js `24.x`, 운영 브랜치 `main` |
+| 현재 운영 배포 | `Ready`, 새 저장소 `main`의 `171ac23` 커밋, 2026-09-28 재배포 완료 |
 | 프런트엔드 응답 | `https://nxdi.vercel.app/` HTTP 200 |
+| 프런트엔드 API 프록시 | `https://nxdi.vercel.app/api/public/home` HTTP 200, JSON 응답 확인 |
 | 백엔드 응답 | `https://kimtaeeun.site/nxdi-api/health` HTTP 200, 서비스 및 DB `ok` |
-| 새 저장소 Actions | 저장소 수준에서는 허용되어 있으나, API의 등록 워크플로 목록과 실행 이력은 비어 있음. Git에는 두 워크플로 파일이 존재 |
+| 새 저장소 Actions | `main` 푸시 후 `CI`와 `Deploy Server`가 등록되어 `active` 상태. 실제 실행 성공 여부는 별도 확인 필요 |
 | 새 저장소 배포 설정 | 저장소 Secret 목록과 Environment 목록이 비어 있음. 조직 Secret은 현재 CLI 권한 부족으로 확인하지 못함 |
 
-임시 저장소에서 자동 배포를 사용하려면 다음 작업을 별도로 완료합니다.
+[완료한 Vercel 운영 배포](https://vercel.com/snowykte0426s-projects/nxdi/HM61PMbQDLDA4JwcnXo3FgvfYcyH)는 기존 `nxdi.vercel.app` 도메인을 사용합니다. 최초 배포 생성은 문서·도구만 변경한 커밋이어서 `Ignored Build Step`에 의해 취소되었고, 해당 배포의 `Redeploy`에서 `Use project's Ignore Build Step`을 해제하여 재배포했습니다. 프로젝트의 일반 변경 감지 설정은 유지했습니다.
 
-1. 기존 Vercel 프로젝트의 Git 연결을 `tmp-it-play/nxdi`로 바꾸고 GitHub 앱의 해당 저장소 접근 가능 여부를 확인합니다. 기존 도메인과 환경변수를 유지하면서 빌드 루트 `client`, 운영 브랜치 `main`을 확인합니다.
-2. 새 저장소의 [Actions](https://github.com/tmp-it-play/nxdi/actions)에서 `CI`와 `Deploy Server`가 등록·활성화되는지 확인합니다. 저장소 수준의 Actions 허용만으로 실제 실행 검증을 대신하지 않습니다.
-3. 서버 워크플로가 사용하는 `production` 환경과 `SERVER_ENV`, `DATA_ENCRYPTION_KEY_BASE64`, `SERVER_HOST`, `SERVER_USER`, `SERVER_PASSWORD` Secret을 확인합니다. Secret 값은 가이드나 Git에 기록하지 않습니다.
-4. 새 저장소 커밋의 Vercel 배포 성공과 CI·서버 배포 실행 결과를 확인합니다. 기존 사이트의 HTTP 200만으로 새 저장소 자동 배포 성공을 판단하지 않습니다.
+배포 연결 이전 절차와 남은 확인 항목은 다음과 같습니다.
+
+1. **완료:** 기존 Vercel 프로젝트의 Git 연결을 `tmp-it-play/nxdi`로 변경하고 저장소 접근, 빌드 루트 `client`, 운영 브랜치 `main`을 확인했습니다. 기존 도메인과 프로젝트 설정을 유지했습니다.
+2. **등록 확인 완료, 실행 검증 필요:** 새 저장소의 [Actions](https://github.com/tmp-it-play/nxdi/actions)에서 `CI`와 `Deploy Server`의 실제 실행 결과를 확인합니다. 워크플로 활성화 상태만으로 실행 성공을 판단하지 않습니다.
+3. **확인 필요:** 서버 워크플로가 사용하는 `production` 환경과 `SERVER_ENV`, `DATA_ENCRYPTION_KEY_BASE64`, `SERVER_HOST`, `SERVER_USER`, `SERVER_PASSWORD` Secret을 준비합니다. Secret 값은 가이드나 Git에 기록하지 않습니다.
+4. **Vercel 완료, 서버 별도:** 새 저장소 커밋의 Vercel 운영 배포와 서비스 응답을 검증했습니다. 서버 재배포는 실행하지 않았으며, 현재 서비스와 DB가 정상 응답하는 것을 확인했습니다.
 
 `Deploy Server`의 자동 실행은 `main`에 반영된 `server/**` 변경으로 한정됩니다. Vercel에도 `client/vercel.json`의 변경 감지 조건이 있으므로, 문서만 변경한 커밋은 배포 검증용으로 적절하지 않을 수 있습니다.
 
@@ -133,6 +138,7 @@ esac
 2. 도메인 `nxdi.vercel.app`, 빌드 루트 `client`, 환경변수와 운영 배포 브랜치를 확인합니다. 임시 작업 브랜치 규칙을 제거하는 것과 Vercel 운영 브랜치 설정은 별개이므로, 브랜치 규칙 원복만을 이유로 운영 브랜치를 바꾸지 않습니다.
 3. 원래 저장소의 `CI`, `Deploy Server`, `production` 환경, 서버 배포 Secret을 확인합니다. 임시 사용 기간에 변경한 배포 설정이 있다면 복귀 대상에도 필요한 값을 반영합니다.
 4. 원래 저장소 커밋으로 배포 성공 및 프런트엔드·백엔드 상태를 확인한 뒤, 임시 저장소의 서버 자동 배포를 중지하여 같은 서버에 두 저장소가 배포하지 않도록 정리합니다.
+5. 임시 저장소를 통한 배포가 더 이상 필요 없다면, 이번에 설치한 Vercel GitHub 앱의 `tmp-it-play/nxdi` 접근도 해제합니다. 다른 프로젝트가 사용 중인 설치나 저장소 권한은 보존합니다.
 
 ### 5. 복귀 확인
 
