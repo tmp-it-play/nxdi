@@ -3,7 +3,7 @@ import { productPolicyDto } from "../../domain/product-policy.js";
 import { DIVIDEND_POLICY_VERSION, DIVIDEND_POLICY_SHA256 } from "../../domain/document-policy.js";
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
-import { activeInvestorRecipients, calculateMonthlyPayouts, calculateTestMonthlyPayout, dueNotificationPeriods, kstDateKey, sampleDisclosure, samplePortfolio, TEST_RECIPIENT, type MonthlyTestInput, type NotificationType } from "../../domain/notifications/index.js";
+import { activeInvestorRecipients, calculateMonthlyPayouts, dueNotificationPeriods, kstDateKey, type NotificationType } from "../../domain/notifications/index.js";
 import type { Disclosure, PortfolioOverview } from "../../domain/types.js";
 import { readDisclosure } from "../disclosures.js";
 import { getManualPortfolioOverview } from "../portfolio-store.js";
@@ -11,9 +11,6 @@ import { prisma } from "../prisma.js";
 import { renderDisclosureEmail, renderMonthlyPayoutEmail, renderQuarterlyHoldingsEmail, TEMPLATE_VERSION } from "./templates.js";
 import { addDeliveries, json, lockEvent, notificationStore, refreshEventStatus, NotificationError, requireCondition, type NotificationDb, type PreparedRecipient } from "./shared.js";
 
-export type TestPreviewInput = ({ type: "MONTHLY_PAYOUT" } & MonthlyTestInput)
-  | { type: "DISCLOSURE"; source: "sample" | "current"; disclosureId?: string }
-  | { type: "QUARTERLY_HOLDINGS"; source: "sample" | "current" };
 export type PreparedNotification = { recipients: PreparedRecipient[]; facts: unknown; calculation?: unknown };
 const quarter = (now: Date) => `${kstDateKey(now).slice(0, 4)}-Q${Math.ceil(Number(kstDateKey(now).slice(5, 7)) / 3)}`;
 const disclosureUrl = (id: string) => new URL(`/disclosures/${encodeURIComponent(id)}`, process.env.PUBLIC_APP_URL ?? "http://localhost:3000").toString();
@@ -49,26 +46,6 @@ export async function prepareProduction(type: NotificationType, period: string |
     recipients: recipients.map((recipient) => ({ userId: recipient.userId, userName: recipient.userName, facts: recipient,
       rendered: renderMonthlyPayoutEmail({ dividendMonth: period, recipient, calculatedAt: now.toISOString(), correctionReason: reason }) }))
   };
-}
-
-export async function prepareTest(input: TestPreviewInput, now: Date): Promise<PreparedNotification> {
-  if (input.type === "MONTHLY_PAYOUT") {
-    const recipient = calculateTestMonthlyPayout(input);
-    const rendered = renderMonthlyPayoutEmail({ dividendMonth: input.dividendMonth, recipient, calculatedAt: now.toISOString(), isTest: true, testInput: input });
-    return { recipients: [{ userId: null, userName: "테스트 투자자", email: TEST_RECIPIENT, rendered, facts: recipient }], facts: { input, calculatedAt: now.toISOString() }, calculation: {
-      investmentKrw: input.investmentKrw, totalMarketValueKrw: input.totalMarketValueKrw, actualDividendKrw: input.actualDividendKrw,
-      cashPayoutKrw: recipient.displayedKrw, feeKrw: recipient.managementFeeKrw, reinvestmentKrw: recipient.reinvestmentKrw
-    } };
-  }
-  if (input.type === "DISCLOSURE") {
-    const disclosure = input.source === "sample" ? sampleDisclosure(now) : input.disclosureId ? await readDisclosure(input.disclosureId) : null;
-    requireCondition(disclosure, "DISCLOSURE_REQUIRED", "테스트할 공시를 선택해 주세요.", 400);
-    const rendered = renderDisclosureEmail({ disclosure, isTest: true, disclosureUrl: input.source === "current" ? disclosureUrl(disclosure.id) : undefined });
-    return { recipients: [{ userId: null, userName: "테스트 수신자", email: TEST_RECIPIENT, rendered }], facts: { disclosure, source: input.source } };
-  }
-  const portfolio = checkedPortfolio(input.source === "sample" ? samplePortfolio(now) : await getManualPortfolioOverview());
-  const rendered = renderQuarterlyHoldingsEmail({ period: quarter(now), portfolio, issuedAt: now.toISOString(), certificateNumber: `TEST-${randomUUID().slice(0, 8)}`, isTest: true });
-  return { recipients: [{ userId: null, userName: "테스트 수신자", email: TEST_RECIPIENT, rendered }], facts: { portfolio, source: input.source } };
 }
 
 export async function savePrepared(db: NotificationDb, id: string, prepared: PreparedNotification, now: Date, draft = false) {

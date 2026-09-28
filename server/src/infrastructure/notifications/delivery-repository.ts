@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import type { DeliveryClaim, DeliveryOutcome, DeliveryRepository, Submission } from "../../application/email-delivery-service.js";
-import { TEST_RECIPIENT } from "../../domain/notifications/index.js";
 import { prisma } from "../prisma.js";
 import { lockEvent, refreshEventStatus, validEmail } from "./shared.js";
 
 // SMTP transport has bounded timeouts; the lease is deliberately longer than its whole submission.
 const LEASE_MS = 10 * 60_000;
-const DELIVERY_MODES = ["PRODUCTION", "TEST"];
+export type DeliveryModePolicy = {
+  mode: string;
+  resolveRecipient(delivery: { userId: string | null; recipientEmail: string | null }): { email: string; addressVersion?: number } | null;
+};
 
 export async function recoverExpiredDeliveries(now: Date) {
   const expired = await prisma.emailDelivery.findMany({ where: { status: { in: ["CLAIMED", "SUBMITTING"] }, claimedUntil: { lt: now } }, take: 100 });
@@ -27,9 +29,19 @@ export async function recoverExpiredDeliveries(now: Date) {
 }
 
 export class PrismaDeliveryRepository implements DeliveryRepository {
+  private readonly additionalModes: Map<string, DeliveryModePolicy>;
+  constructor(policies: readonly DeliveryModePolicy[] = []) {
+    this.additionalModes = new Map();
+    for (const policy of policies) {
+      if (policy.mode === "PRODUCTION" || this.additionalModes.has(policy.mode)) throw new Error("Delivery policies cannot replace an existing mode");
+      this.additionalModes.set(policy.mode, policy);
+    }
+  }
+  private supportedModes() { return ["PRODUCTION", ...this.additionalModes.keys()]; }
+
   async claim(now: Date): Promise<DeliveryClaim | null> {
     const rows = await prisma.emailDelivery.findMany({
-      where: { status: { in: ["PENDING", "RETRY_WAIT"] }, nextAttemptAt: { lte: now }, event: { mode: { in: DELIVERY_MODES }, status: { notIn: ["DRAFT", "CANCELLED"] } } },
+      where: { status: { in: ["PENDING", "RETRY_WAIT"] }, nextAttemptAt: { lte: now }, event: { mode: { in: this.supportedModes() }, status: { notIn: ["DRAFT", "CANCELLED"] } } },
       orderBy: { nextAttemptAt: "asc" }, take: 20, select: { id: true }
     });
     for (const row of rows) {
@@ -50,19 +62,22 @@ export class PrismaDeliveryRepository implements DeliveryRepository {
       const event = await lockEvent(db, ref.eventId);
       const delivery = await db.emailDelivery.findUnique({ where: { id: claim.id } });
       if (!delivery || delivery.status !== "CLAIMED" || delivery.claimToken !== claim.token || !delivery.claimedUntil || delivery.claimedUntil <= now) return null;
-      if (!DELIVERY_MODES.includes(event.mode) || ["DRAFT", "CANCELLED"].includes(event.status)) {
+      if (!this.supportedModes().includes(event.mode) || ["DRAFT", "CANCELLED"].includes(event.status)) {
         await db.emailDelivery.update({ where: { id: claim.id }, data: { status: event.status === "CANCELLED" ? "CANCELLED" : "PENDING", claimToken: null, claimedUntil: null } });
         return null;
       }
-      const contact = delivery.userId ? await db.notificationRecipient.findUnique({ where: { userId: delivery.userId } }) : null;
-      const to = event.mode === "TEST" ? TEST_RECIPIENT : validEmail(contact?.errorCode ? null : contact?.email);
+      const contact = event.mode === "PRODUCTION" && delivery.userId ? await db.notificationRecipient.findUnique({ where: { userId: delivery.userId } }) : null;
+      const recipient = event.mode === "PRODUCTION"
+        ? contact && !contact.errorCode ? { email: contact.email, addressVersion: contact.addressVersion } : null
+        : this.additionalModes.get(event.mode)?.resolveRecipient(delivery);
+      const to = validEmail(recipient?.email);
       if (!to) {
         await db.emailDelivery.update({ where: { id: claim.id }, data: { status: "BLOCKED_ADDRESS", lastErrorCode: "RECIPIENT_ADDRESS_REQUIRED", claimToken: null, claimedUntil: null } });
         await refreshEventStatus(db, event.id);
         return null;
       }
       const attemptNumber = delivery.attemptCount + 1;
-      await db.emailDeliveryAttempt.create({ data: { deliveryId: claim.id, number: attemptNumber, toEmail: to, addressVersion: contact?.addressVersion, status: "SUBMITTING", startedAt: now } });
+      await db.emailDeliveryAttempt.create({ data: { deliveryId: claim.id, number: attemptNumber, toEmail: to, addressVersion: recipient?.addressVersion, status: "SUBMITTING", startedAt: now } });
       await db.emailDelivery.update({ where: { id: claim.id }, data: { status: "SUBMITTING", attemptCount: attemptNumber, recipientEmail: to, claimedUntil: new Date(now.getTime() + LEASE_MS) } });
       return { ...claim, attemptNumber, to, subject: delivery.subject, html: delivery.html, text: delivery.text, messageId: delivery.messageId };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });

@@ -1,9 +1,9 @@
 import type { Disclosure, PortfolioOverview } from "../../domain/types.js";
-import type { MonthlyPayoutRecipient, MonthlyTestInput, RenderedEmail } from "../../domain/notifications/index.js";
+import type { MonthlyPayoutRecipient, RenderedEmail } from "../../domain/notifications/index.js";
 
 export const TEMPLATE_VERSION = "1";
 
-type TemplateOptions = { isTest?: boolean; correctionReason?: string };
+type TemplateOptions = { correctionReason?: string };
 
 function escapeHtml(value: string | number) {
   return String(value).replace(/[&<>"']/g, (character) => ({
@@ -64,10 +64,9 @@ function table(rows: Array<[string, string]>) {
 
 function render(subject: string, bodyHtml: string, bodyText: string, options: TemplateOptions): RenderedEmail {
   const cleanSubject = subject.replace(/[\r\n]+/g, " ");
-  const markedSubject = `${options.isTest ? "[테스트] " : ""}${options.correctionReason ? "[정정] " : ""}${cleanSubject}`;
-  const testText = options.isTest ? "테스트 이메일입니다. 표시된 내용은 실제 거래·지급 통지가 아닙니다." : "";
+  const markedSubject = `${options.correctionReason ? "[정정] " : ""}${cleanSubject}`;
   const correctionText = options.correctionReason ? `정정 사유: ${options.correctionReason}` : "";
-  const notices = [testText, correctionText].filter(Boolean);
+  const notices = [correctionText].filter(Boolean);
   return {
     subject: markedSubject,
     html: `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(markedSubject)}</title></head><body style="margin:0;background:#f5f6f8;color:#17202e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.65"><div style="max-width:640px;margin:0 auto;padding:24px 16px"><div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:24px 16px"><p style="color:#425366;letter-spacing:2px;font-size:12px;margin:0 0 8px">NEXTACH GLOBAL DIVIDEND INCOME FUND</p><h1 style="font-size:24px;line-height:1.4;overflow-wrap:anywhere;margin:0 0 24px">${escapeHtml(cleanSubject)}</h1>${notices.map((notice) => `<p style="background:#fff7df;padding:12px;border-radius:6px">${escapeHtml(notice)}</p>`).join("")}${bodyHtml}<p style="border-top:1px solid #e5e7eb;padding-top:20px;margin-top:28px;color:#667085;font-size:12px">NXDI · NexTach Global Dividend Income Fund<br>문의: contact@kimtaeeun.site</p></div></div></body></html>`,
@@ -108,7 +107,6 @@ export type MonthlyPayoutEmailInput = TemplateOptions & {
   dividendMonth: string;
   recipient: MonthlyPayoutRecipient;
   calculatedAt: string;
-  testInput?: MonthlyTestInput;
 };
 
 export function renderMonthlyPayoutEmail(input: MonthlyPayoutEmailInput): RenderedEmail {
@@ -121,16 +119,11 @@ export function renderMonthlyPayoutEmail(input: MonthlyPayoutEmailInput): Render
     ["재투자액", won(recipient.reinvestmentKrw)],
     ["계산 일시", timestamp(input.calculatedAt)]
   ];
-  const testRows: Array<[string, string]> = input.isTest && input.testInput ? [
-    ["포트폴리오 총액", won(input.testInput.totalMarketValueKrw)],
-    ["가상 투자금액", won(input.testInput.investmentKrw)],
-    ["월 실배당 합계", won(input.testInput.actualDividendKrw)]
-  ] : [];
   const note = "전월 실배당과 해당 월의 배당 적격 잔액으로 계산한 참고 금액입니다. 이 안내는 지급 승인 또는 송금 완료를 의미하지 않습니다. 원 단위 표시는 개인별 계산액을 반올림한 값입니다.";
   return render(
     `NXDI ${input.dividendMonth} 월별 지급액 안내`,
-    `<p>${escapeHtml(recipient.userName)}님, ${escapeHtml(input.dividendMonth)} 기준 지급액을 안내합니다.</p><p style="font-size:32px;font-weight:700;color:#155e75;margin:24px 0">${escapeHtml(won(recipient.displayedKrw))}</p>${table(rows)}<p style="font-size:13px;color:#667085">${note}</p>${testRows.length ? `<h2 style="font-size:18px;margin-top:28px">테스트 계산 입력값</h2><p>가상 투자자 한 명을 기준으로 계산했습니다.</p>${table(testRows)}` : ""}`,
-    [`${recipient.userName}님, ${input.dividendMonth} 기준 지급액을 안내합니다.`, rows.map(([key, value]) => `${key}: ${value}`).join("\n"), note, ...(testRows.length ? ["테스트 계산 입력값 (가상 투자자 한 명)", testRows.map(([key, value]) => `${key}: ${value}`).join("\n")] : [])].join("\n\n"),
+    `<p>${escapeHtml(recipient.userName)}님, ${escapeHtml(input.dividendMonth)} 기준 지급액을 안내합니다.</p><p style="font-size:32px;font-weight:700;color:#155e75;margin:24px 0">${escapeHtml(won(recipient.displayedKrw))}</p>${table(rows)}<p style="font-size:13px;color:#667085">${note}</p>`,
+    [`${recipient.userName}님, ${input.dividendMonth} 기준 지급액을 안내합니다.`, rows.map(([key, value]) => `${key}: ${value}`).join("\n"), note].join("\n\n"),
     input
   );
 }

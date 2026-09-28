@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthNavActions } from "@/app/components/auth-actions";
 import { AppShell, Navigation, Top } from "@/app/components/tds";
@@ -19,6 +20,7 @@ export default async function NotificationsPage() {
         title="이메일 알림 관리"
         description="공시, 월별 지급액, 분기 보유확인서를 미리 보고 발송 이력을 확인합니다."
         backLink={{ href: "/admin", label: "운영 관리" }}
+        actions={<Link className="button secondary" href="/admin/notifications/test">테스트 발송</Link>}
       />
       <NotificationManager initialData={data} />
     </AppShell>

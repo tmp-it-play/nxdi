@@ -25,36 +25,13 @@ export type NotificationsResponse = {
   total: number;
   page: number;
   pageSize: number;
-  settings: {
-    testRecipient: string;
-  };
-  defaults: {
-    dividendMonth: string;
-    totalMarketValueKrw?: number;
-    actualDividendKrw?: number;
-  };
-  disclosures: Array<{ id: string; title: string }>;
 };
-
-export type TestEmailInput =
-  | { type: "MONTHLY_PAYOUT"; dividendMonth: string; totalMarketValueKrw: number; investmentKrw: number; actualDividendKrw: number }
-  | { type: "DISCLOSURE"; source: "sample" | "current"; disclosureId?: string }
-  | { type: "QUARTERLY_HOLDINGS"; source: "sample" | "current" };
 
 export type EmailPreview = {
   id: string;
   subject: string;
   html: string;
   text: string;
-  expiresAt?: string;
-  calculation?: {
-    investmentKrw: number;
-    totalMarketValueKrw: number;
-    actualDividendKrw: number;
-    cashPayoutKrw: number;
-    feeKrw: number;
-    reinvestmentKrw: number;
-  };
 };
 
 export type NotificationDelivery = {

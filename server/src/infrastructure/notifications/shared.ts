@@ -26,7 +26,7 @@ export async function notificationStore(db: NotificationDb = prisma): Promise<No
   const map = (row: typeof investmentIntents[number]) => ({ ...row, status: "COMPLETED" as const, updatedAt: row.updatedAt.toISOString() });
   return { investmentIntents: investmentIntents.map(map), withdrawalIntents: withdrawalIntents.map(map) };
 }
-export type PreparedRecipient = { userId: string | null; userName: string; email?: string; rendered: RenderedEmail; facts?: unknown };
+export type PreparedRecipient = { userId: string | null; userName: string; email?: string; recipientKey?: string; rendered: RenderedEmail; facts?: unknown };
 export async function addDeliveries(db: NotificationDb, eventId: string, recipients: PreparedRecipient[], now: Date, draft = false) {
   if (!recipients.length) return;
   const contacts = await db.notificationRecipient.findMany({ where: { userId: { in: recipients.flatMap((r) => r.userId ? [r.userId] : []) } } });
@@ -34,8 +34,10 @@ export async function addDeliveries(db: NotificationDb, eventId: string, recipie
   await db.emailDelivery.createMany({ data: recipients.map((r) => {
     const contact = r.userId ? byUser.get(r.userId) : undefined;
     const address = validEmail(r.email ?? (contact?.errorCode ? null : contact?.email));
+    const recipientKey = r.recipientKey ?? r.userId ?? address;
+    requireCondition(recipientKey, "RECIPIENT_KEY_REQUIRED", "발송 대상을 식별할 수 없습니다.");
     return {
-      eventId, recipientKey: r.userId ?? "test:snowykte0426@naver.com", userId: r.userId, recipientEmail: address,
+      eventId, recipientKey, userId: r.userId, recipientEmail: address,
       recipientName: r.userName, ...r.rendered, payload: json(r.facts ?? {}),
       messageId: `<${randomUUID()}@kimtaeeun.site>`, status: draft ? "DRAFT" : address ? "PENDING" : "BLOCKED_ADDRESS", nextAttemptAt: now
     };

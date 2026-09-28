@@ -1,3 +1,4 @@
+import { registerTemporaryEmailTestRoutes } from "./temporary/email-tests/index.js";
 import cookie from "@fastify/cookie";
 import formbody from "@fastify/formbody";
 import rateLimit from "@fastify/rate-limit";
@@ -84,6 +85,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await registerMarketRoutes(app);
   await registerAdminRoutes(app);
   await registerNotificationRoutes(app);
+  await registerTemporaryEmailTestRoutes(app);
   await registerCronRoutes(app);
 
   app.setErrorHandler((error, request, reply) => {
