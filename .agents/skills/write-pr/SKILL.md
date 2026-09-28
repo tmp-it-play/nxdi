@@ -6,6 +6,22 @@ allowed-tools: Bash(git *:*), Bash(bash *create-pr.sh:*), Bash(cat *:*), Read, W
 
 ## Step 1 — Gather Context
 
+Read root `AGENTS.md` and check `git remote get-url origin` first. When `origin` points to `tmp-it-play/nxdi` on GitHub (HTTPS or SSH, with or without `.git`), the temporary base is `main` for every work branch:
+
+```bash
+git branch --show-current
+git fetch origin
+git log origin/main..HEAD --oneline
+git diff origin/main...HEAD --stat
+git diff origin/main...HEAD
+```
+
+If on `main` or a detached HEAD, switch to an appropriate work branch before proceeding. The temporary repository is a fork; create PRs explicitly in `tmp-it-play/nxdi` using `--repo tmp-it-play/nxdi` (the creation script handles this).
+
+This override stops applying when `origin` changes away from the temporary repository. On return, revert all repository-migration edits to this skill, the `git-commit` skill, and the PR creation script to their pre-migration contents using root `REPOSITORY_RETURN_GUIDE.md`, preserving unrelated later edits.
+
+Otherwise, use the existing Git Flow context commands below, subject to the original repository's current branch policy:
+
 ```bash
 git branch --show-current
 git log origin/develop..HEAD --oneline 2>/dev/null || git log --oneline -15

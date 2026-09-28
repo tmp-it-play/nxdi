@@ -1,5 +1,12 @@
 # NXDI Agent Guidelines
 
+## Temporary Repository Workflow
+
+- Apply this section only while `origin` points to `tmp-it-play/nxdi` on GitHub (HTTPS or SSH, with or without `.git`).
+- Create every new work branch from the latest `origin/main`, and target `main` when opening a PR. Do not commit work directly on `main`.
+- Use `<type>/<kebab-case-description>` for work branches. This temporary rule takes precedence over the Git Flow defaults in the commit and PR skills.
+- When `origin` returns to `it-play/nxdi`, this section no longer applies. Revert the repository-migration edits to the `git-commit` and `write-pr` skills and the PR creation script to their pre-migration contents, and remove this section. Follow [REPOSITORY_RETURN_GUIDE.md](REPOSITORY_RETURN_GUIDE.md) to preserve unrelated later edits, then follow the original repository's current branch policy.
+
 ## Testing Policy
 
 - Write unit tests only for core business logic and service or application logic.

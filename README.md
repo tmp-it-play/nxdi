@@ -7,3 +7,4 @@
 - [상품설명](/client/content/product-description.md)
 - [배당 정책](/client/content/dividend-policy.md)
 - [LICENSE](/LICENSE)
+- [저장소 복귀 가이드](/REPOSITORY_RETURN_GUIDE.md)

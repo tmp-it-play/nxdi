@@ -1,16 +1,30 @@
 ---
 name: git-commit
-description: Create Git commits by splitting changes into logical units following project conventions. Handles Git Flow automatically — detects develop branch and checks out a feature branch before committing.
+description: Create Git commits by splitting changes into logical units following project conventions. Check repository-specific branch rules before applying the Git Flow defaults.
 allowed-tools: Bash
 ---
 
 ## Step 0 — Branch Check (Required)
 
-Check the current branch first:
+Check the remote and current branch first:
 
 ```bash
+git remote get-url origin
 git branch --show-current
 ```
+
+### Temporary repository: `tmp-it-play/nxdi`
+
+When `origin` points to `tmp-it-play/nxdi` on GitHub (HTTPS or SSH, with or without `.git`), follow the temporary workflow in root `AGENTS.md`:
+
+- Create new work branches from the latest `origin/main` and target `main` for PRs.
+- If currently on `main`, inspect the changes, infer a `<type>/<kebab-case-description>` branch name, and run `git fetch origin` followed by `git switch --no-track -c <type>/<inferred-name> origin/main` before committing. Preserve any local changes; do not reset or discard them to switch branches.
+- If already on a work branch, continue there after checking that it follows the `main` branch policy.
+- Skip the Git Flow defaults below and continue with the commit flow.
+
+This override stops applying as soon as `origin` no longer points to the temporary repository. On return, revert all repository-migration edits to this skill, the `write-pr` skill, and its PR creation script to their pre-migration contents using root `REPOSITORY_RETURN_GUIDE.md`. Preserve unrelated later edits and follow the original repository's current branch policy.
+
+### Git Flow defaults (outside the temporary repository)
 
 **If current branch is `develop`:**
 
