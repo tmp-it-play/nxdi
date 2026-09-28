@@ -2,14 +2,14 @@ import cron from "node-cron";
 import type { FastifyBaseLogger } from "fastify";
 import type { Environment } from "../../config/env.js";
 import { EmailDeliveryService } from "../../application/email-delivery-service.js";
-import { PrismaDeliveryRepository, recoverExpiredDeliveries, type DeliveryModePolicy } from "./delivery-repository.js";
+import { PrismaDeliveryRepository, recoverExpiredDeliveries } from "./delivery-repository.js";
 import { prepareDueNotifications } from "./preparation.js";
 import { createSmtpMailSender } from "./smtp.js";
 import { setNotificationWake } from "./signals.js";
 
-export function startNotificationWorker(environment: Environment, logger: FastifyBaseLogger, additionalModes: readonly DeliveryModePolicy[] = []) {
+export function startNotificationWorker(environment: Environment, logger: FastifyBaseLogger) {
   const sender = createSmtpMailSender(environment);
-  const dispatcher = new EmailDeliveryService(new PrismaDeliveryRepository(additionalModes), sender);
+  const dispatcher = new EmailDeliveryService(new PrismaDeliveryRepository(), sender);
   let running: Promise<void> | undefined;
   let stopped = false;
   let wakeRequested = false;

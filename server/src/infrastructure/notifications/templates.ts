@@ -1,7 +1,7 @@
 import type { Disclosure, PortfolioOverview } from "../../domain/types.js";
 import type { MonthlyPayoutRecipient, RenderedEmail } from "../../domain/notifications/index.js";
 
-export const TEMPLATE_VERSION = "1";
+export const TEMPLATE_VERSION = "2";
 
 type TemplateOptions = { correctionReason?: string };
 
@@ -96,7 +96,7 @@ export function renderDisclosureEmail(input: DisclosureEmailInput): RenderedEmai
     };
   });
   return render(
-    `NXDI 새 공시 · ${disclosure.title}`,
+    disclosure.title,
     `<p style="font-size:13px;color:#667085">등록 일시: ${escapeHtml(timestamp(disclosure.createdAt))}</p>${markdownBody(disclosure.body)}${tradeRows.length ? `<h2 style="font-size:18px;margin-top:28px">거래 내역</h2>${tradeRows.map((trade) => trade.html).join("")}` : ""}${url ? `<p style="margin-top:24px"><a style="color:#155e75" href="${escapeHtml(url)}">사이트에서 공시 보기</a></p>` : ""}`,
     [`등록 일시: ${timestamp(disclosure.createdAt)}`, disclosure.body, ...tradeRows.map((trade) => trade.text), ...(url ? [`공시 링크: ${url}`] : [])].join("\n\n"),
     input
