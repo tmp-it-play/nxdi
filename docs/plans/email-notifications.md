@@ -1,7 +1,7 @@
 # 이메일 알림 기능 구현 계획
 
 - 작성일: 2026-09-28
-- 상태: 코드 조사·설계 후 구현에 반영. SMTP 필수 설정과 상시 실행 요구사항을 반영했다. 사용자 확정 사항과 설계 기본안을 구분한다.
+- 상태: 코드 조사·설계 후 구현에 반영. SMTP 필수 설정, 운영 상시 실행, 임시 테스트 모듈의 독립 제거 요구사항을 반영했다. 사용자 확정 사항과 설계 기본안을 구분한다.
 - 조사 기준: `origin/main`의 `4ded362883eafdbd6d48d118b133c191da20a6dd`
 - 설계 작성 브랜치: `docs/email-notification-plan`
 - 범위: 신규 공시 이메일, 분기별 보유확인서 이메일, 매월 1일 지급액 안내, 세 종류의 관리자 테스트 발송.
@@ -68,6 +68,7 @@
 - 별도 수신 설정 없이 각 알림의 대상 조건을 충족하는 투자자에게 자동 발송한다. 종류별 수신 토글·구독 설정 화면과 API는 제공하지 않는다.
 - 관리자는 공시·월별 지급액·분기 보유확인서 세 종류의 테스트 이메일을 각각 `snowykte0426@naver.com`으로 보낼 수 있어야 한다.
 - 월별 지급액 테스트에서는 포트폴리오 총액과 투자금액을 임의로 지정해 계산할 수 있어야 한다. 임의 입력값을 운영 포트폴리오·투자 의향서에 저장하지 않는다.
+- 관리자 테스트는 임시 기능으로 분리한다. 샘플·임의 입력·테스트 API·화면·TEST 전송 정책을 지정 디렉터리에 모으고, 운영 코드의 연결 세 곳만 제거하면 운영 알림이 독립적으로 빌드·실행되어야 한다. 기존 TEST 이력은 보존한다.
 
 ### 발송 동작 요약
 
@@ -131,7 +132,7 @@
 - HTML 본문과 일반 텍스트 본문을 함께 전달한다. 전달 항목별 `Message-ID`를 저장해 서버 로그와 대조할 수 있게 한다. `Message-ID`가 같다는 이유만으로 중복 전송이 차단된다고 가정하지 않는다. [Nodemailer 메시지 설정](https://nodemailer.com/message)
 - 사용자에게 받은 IMAP `mail.kimtaeeun.site:993` 설정은 메일 수신용이다. 현재 요구인 발송 기능에서는 메일함 읽기·IMAP 연동을 추가하지 않는다. 자동 반송 수집·배달 웹훅이 제공된다고 가정하지 않는다.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`은 모두 서버 시작의 필수 환경변수다. 값이 누락되거나 잘못되면 서버를 시작하지 않는다. 위 표의 예시 값은 런타임 기본값으로 대체되지 않는다. 비밀번호는 서버 시작 전에 비밀 환경변수로 주입하고 `.env.example`에는 빈 값만 기록한다. 클라이언트 환경변수·응답·로그에 노출하지 않는다.
-- 정상적으로 시작된 서버는 운영 자동 발송 작업을 항상 실행하고, 관리자 수동 테스트를 항상 제공한다. 테스트는 고정 수신자 전용 기록으로 구분한다. 운영 전 검증은 운영 투자자 연락처·발송 대기 항목이 없는 격리된 스테이징 DB에서 수행한다. 처리량·제한시간 설정인 `MAIL_BATCH_SIZE`, `SMTP_CONNECTION_TIMEOUT_MS`, `SMTP_SOCKET_TIMEOUT_MS`에는 기본값을 유지한다.
+- 정상적으로 시작된 서버는 운영 자동 발송 작업을 항상 실행한다. 임시 테스트 모듈을 포함한 빌드는 관리자 수동 테스트도 제공하며 고정 수신자 전용 기록으로 구분한다. 운영 전 검증은 운영 투자자 연락처·발송 대기 항목이 없는 격리된 스테이징 DB에서 수행한다. 처리량·제한시간 설정인 `MAIL_BATCH_SIZE`, `SMTP_CONNECTION_TIMEOUT_MS`, `SMTP_SOCKET_TIMEOUT_MS`에는 기본값을 유지한다.
 - 구현 후 비밀번호를 입력받으면 먼저 `verify()`로 연결·TLS·인증을 검사할 수 있다. 이 검사는 메시지를 전송하지 않으며 실제 발신 주소 허용이나 받은편지함 도착을 입증하지는 않는다. 이후 사용자 지시 범위의 테스트 수신자로 실제 전송을 확인한다. [연결 검증 범위](https://nodemailer.com/smtp#verifying-the-configuration)
 - 메일 서비스 장애를 DB readiness 검사에 결합하지 않는다. 메일 기능 상태는 관리자 화면과 작업 상태에서 별도로 보여준다.
 
@@ -224,11 +225,11 @@ SMTP 최종 접수 성공은 `ACCEPTED`로 기록한다. 실제 받은편지함 
 
 #### 화면과 동작
 
-관리자 발송 화면에 ‘테스트 발송’ 영역을 추가한다. 공시·월별 지급액·분기 보유확인서를 선택하고, 고정된 수신 주소 `snowykte0426@naver.com`을 표시한다. 각 종류에 ‘미리보기’와 ‘테스트 메일 보내기’ 동작을 제공한다.
+운영 관리 화면 `/admin/notifications`에는 ‘테스트 발송’ 링크만 두고, 임시 화면 `/admin/notifications/test`에서 공시·월별 지급액·분기 보유확인서를 선택한다. 고정 수신 주소 `snowykte0426@naver.com`을 표시하고 각 종류에 ‘미리보기’와 ‘테스트 메일 보내기’를 제공한다.
 
 - 미리보기는 서버에서 같은 운영용 계산 함수·HTML/텍스트 템플릿으로 만든다. 미리보기 자체는 SMTP 전송을 발생시키지 않는다.
 - 발송 버튼은 저장된 미리보기 ID·입력 지문을 참조한다. 입력을 바꾸면 다시 미리보기를 만들고, 실제 전송은 사용자가 확인한 원본을 사용한다.
-- 성공 표시는 SMTP 접수 성공을 의미한다. 처리 중·접수됨·실패·결과 불명 상태를 표시하고 일반 발송과 같은 재시도 규칙을 적용한다.
+- 성공 표시는 SMTP 접수 성공을 의미한다. 임시 전송 정책이 연결되어 있는 동안 같은 자동 재시도 규칙을 사용한다. 운영 관리의 수동 재시도·정정은 PRODUCTION만 허용하며, TEST 이력 조회와 UNKNOWN의 근거 확인은 임시 모듈을 제거한 뒤에도 유지한다.
 - 제목 앞에 `[테스트]`를 붙이고 본문에 테스트 안내임을 표시한다. 금액 안내에는 실제 지급 통지가 아닌 입력값 기반 계산임을 함께 표시한다.
 - 서버가 시작된 상태에서 관리자는 발송일·투자 적격 여부·배당 입력 완료 여부에 관계없이 테스트할 수 있다. 필수 SMTP 설정은 서버 시작 때 검증한다.
 - 한 번의 명시적 발송 동작은 메일 한 통만 만든다. 중복 클릭·HTTP 재시도는 동일 요청 키로 처리하고, 관리자가 새 테스트를 실행하면 새 요청 ID로 다시 보낼 수 있다.
@@ -276,10 +277,17 @@ calculateDividendAllocation({
 #### 운영 발송과의 분리
 
 - 수신 주소는 서버에서 `snowykte0426@naver.com`으로 고정한다. 클라이언트가 전달하는 `to`·`cc`·`bcc`·envelope 수신자 필드는 허용하지 않고 실제 SMTP 대상도 한 명인지 검증한다.
-- 수동 테스트는 서버가 동작하는 동안 항상 사용할 수 있다. 한 요청은 지정된 고정 주소용 TEST 기록 한 건만 만들며 투자자 전체로 발송하지 않는다.
+- 수동 테스트는 임시 모듈을 포함한 서버에서 사용할 수 있다. 한 요청은 지정된 고정 주소용 TEST 기록 한 건만 만들며 투자자 전체로 발송하지 않는다.
 - 테스트는 운영 공시·의향·실배당·포트폴리오를 변경하지 않으며, 해당 월·분기의 실제 발송 완료 이력이나 중복 방지 키를 소비하지 않는다.
 - 테스트 원본·사용한 입력값·요청 관리자·실제 수신 주소·접수 결과·시도 이력은 TEST 모드로 기록하고 관리자 목록에서 구분한다.
 - 관리자 계정 기준의 발송 요청 빈도 제한과 요청 멱등 키를 적용한다. `UNKNOWN`은 새 주소나 새 요청 키로 자동 재전송하지 않는다.
+
+#### 임시 코드 경계와 제거
+
+- 백엔드 임시 구현은 `server/src/temporary/email-tests/`, 전용 테스트는 `server/test/temporary-email-tests/`, 프런트엔드는 `client/src/app/admin/notifications/test/`에 둔다. 운영 계산식·렌더러는 임시 코드가 참조하며, 운영 핵심 모듈이 테스트 샘플·고정 수신자·임시 DTO를 가져오지 않는다.
+- 제거 시 위 세 디렉터리를 삭제하고 `server/src/app.ts`의 임시 라우트 import·등록, `server/src/index.ts`의 임시 정책 import·작업자 세 번째 인수, 운영 알림 `page.tsx`의 테스트 링크·`Link` import만 제거한다. 기본 작업자는 PRODUCTION만 처리한다.
+- 기존 작업자를 종료하고 진행 중 작업이 끝난 뒤 제거한 빌드를 시작한다. DB migration·TEST 이력 삭제는 필요하지 않다. 남아 있는 TEST 대기 항목은 발송하지 않으며 상세·본문·UNKNOWN 확인 근거는 계속 조회한다. SMTP 필수 설정과 연락처 전환 절차는 그대로 적용한다.
+- 정확한 코드 변경 지점과 검증 명령은 [운영 문서의 임시 테스트 제거 절차](../email-notification-operations.md#임시-테스트-기능의-코드-제거)를 따른다. 별도 복사본에서 실제로 제거한 뒤 서버 lint·타입·테스트 118개·빌드, 클라이언트 lint·타입·빌드가 통과했다. 기존 TEST claim 거절과 임시 API 404도 실제 DB·SMTP 없이 확인했다.
 
 ## 5. 수신자·관리 화면
 
@@ -314,13 +322,14 @@ calculateDividendAllocation({
 | `server/src/routes/auth.ts` | OAuth 성공 후 DataGSM 연락처 저장·갱신 |
 | `server/src/domain/notifications/` (신규) | 기간·수신 조건·상태 전이·실패 분류·사용자별 표시액 집계 |
 | `server/src/application/*notification*-service.ts` (신규) | 공시 예약, 월별·분기 준비, 전송 처리, 재시도·정정 서비스 |
-| `server/src/application/prepare-test-email-service.ts`, `send-test-email-service.ts` (신규) | 입력 검증·가상 지급액 계산·미리보기 원본 저장, 고정 수신자 전송·중복 요청 처리 |
+| `server/src/temporary/email-tests/`, `server/test/temporary-email-tests/` | 제거 가능한 임시 API·샘플·임의 계산·고정 수신자·테스트 표시·전송 정책과 전용 사업 로직 테스트 |
 | `server/src/infrastructure/notifications/` (신규) | Prisma 저장소·SMTP 어댑터·HTML 및 텍스트 템플릿 |
 | `server/src/infrastructure/disclosures.ts`, `server/src/routes/admin.ts` | 공시 생성과 예약의 트랜잭션 연결, 수정·삭제 연동 |
 | `server/src/application/record-monthly-dividend-service.ts` 및 저장 어댑터 | 저장 성공 후 준비 대상 표시. 주기 작업이 최종 누락 복구를 책임짐 |
 | `server/src/scheduler/index.ts`, `server/src/index.ts` | 1분 단위 준비·전송, 시작 시 누락 확인, 종료 시 정리 |
-| `server/src/routes/admin-notifications.ts` (신규), `server/src/app.ts` | 관리자 전용 조회·미리보기·재시도·결과 확인·정정·테스트 API 등록 |
-| `client/src/app/admin/notifications/` (신규), `client/src/lib/api.ts` | 발송 관리 화면·테스트 종류 선택·금액 입력·미리보기·전송 상태와 DTO |
+| `server/src/routes/admin-notifications.ts`, `server/src/app.ts` | 운영 관리자 API와 별도의 임시 테스트 라우트 등록 지점 |
+| `client/src/app/admin/notifications/`, `client/src/lib/api.ts` | 운영 발송 관리·이력·정정·공통 본문 미리보기 |
+| `client/src/app/admin/notifications/test/` | 제거 가능한 테스트 화면·종류 선택·임의 금액·미리보기·전송 요청과 전용 DTO |
 | `server/deploy/scripts/after_install.sh` 및 배포 문서 | 새 스키마 적용 순서, 기존 테이블 rename 훅과 공존, 격리 환경 검증·최초 시작 절차 |
 | `server/test/` | 핵심 domain/application BDD 테스트 |
 
@@ -339,6 +348,7 @@ calculateDividendAllocation({
 | `POST /api/admin/email-deliveries/:id/resolve` | `UNKNOWN`의 외부 확인 근거와 결과 기록. 재시도 선택은 별도 명시 |
 | `POST /api/admin/notifications/:id/corrections` | 정정 사유·새 입력·버전을 가진 안내 준비 |
 | `POST /api/admin/notifications/:id/send` | 미리보기 완료 후 정정 안내 발송 요청. 정기 최초 발송에는 이 단계를 요구하지 않음 |
+| `GET /api/admin/notifications/tests/options` | 임시 모듈의 샘플·기존 공시 선택 및 명시적으로 요청한 현재 입력값 조회 |
 | `POST /api/admin/notifications/tests/preview` | 테스트 종류와 입력값을 검증하고 서버 계산·본문 생성. TEST DRAFT ID·입력 지문·계산 결과·본문 반환, SMTP 호출 없음 |
 | `POST /api/admin/notifications/tests/:id/send` | 저장된 TEST 미리보기를 고정 주소로 발송 요청. 요청 멱등 키 필수, 수신자 입력 불가 |
 
@@ -365,6 +375,7 @@ calculateDividendAllocation({
 - 확인서 업무: 동일 분기 발급 중복, 최신 데이터 준비 실패, 발송 준비 지연 시 실제 기준 시각, 저장된 원본 생성 후 보유 내역이 달라져도 재시도에서 동일 데이터·본문 재사용.
 - 관리자 테스트 application 로직: 세 종류 모두 고정 수신자 사용, 운영 데이터 없는 샘플 처리, 임의 총액·투자금·실배당을 기존 배분 함수에 전달, 1,425원 예제·0원 계산, 미리보기의 SMTP 미호출, 원본 변경 없는 발송, 중복 클릭 한 건 처리.
 - 시작 조건·테스트 모드 경계: 필수 SMTP 값 누락 시 서버 시작 실패, 정상 시작 후 운영·테스트 작업의 상시 실행, 임의 수신자·CC/BCC 입력 거절, TEST/PRODUCTION 혼용 거절, 운영 원장·정기 발송 키 불변, 요청자별 빈도 제한. HTTP 인증·Origin 경계는 격리된 통합 검증으로 확인한다.
+- 임시 기능 제거: 별도 복사본에서 임시 디렉터리 세 곳과 운영 코드 연결 세 곳을 삭제하고 서버·클라이언트를 검증한다. 기본 작업자의 PRODUCTION 전용 claim, 구버전 TEST claim 거절, 임시 API 제거, TEST 이력·UNKNOWN 확인 유지와 운영 페이지 빌드를 확인한다.
 - UI·메일 HTML·정적 콘텐츠에는 단위·스냅샷 테스트를 추가하지 않는다. 실제 메일 미리보기와 주요 메일 클라이언트 수동 확인으로 링크·한글·표·좁은 화면의 넘침·이미지 차단 시 가독성을 검증한다.
 - 접근 제어, DB 제약·트랜잭션, 재시작 복구는 로컬 또는 격리된 통합 환경에서 확인한다.
 - 변경 모듈의 가장 좁은 검증부터 실행한다. 전체 모듈 검증이 필요하면 `server`/`client`의 `npm run verify`, 프런트 배포 검증에는 `npm run build`를 추가한다.
@@ -385,4 +396,5 @@ calculateDividendAllocation({
 9. 정상 시작한 서버에서 관리자는 날짜와 투자자 등록 여부에 관계없이 세 종류를 각각 `snowykte0426@naver.com`으로 테스트 발송할 수 있다. TEST 기록과 고정 수신자는 운영 회차와 분리한다.
 10. 월별 테스트는 포트폴리오 총액·투자금액·월 실배당을 직접 지정해 기존 계산식으로 미리보기·발송할 수 있으며, 운영 포트폴리오·투자·실배당 기록과 월별 발송 완료 상태는 변경되지 않는다.
 11. 테스트 발송의 제목·본문·이력에는 테스트임이 표시되고, 실제 전송 내용과 입력값이 미리보기 원본과 일치한다.
-12. SMTP 호스트·포트·TLS 방식·계정·비밀번호·발신자 중 하나라도 누락되거나 유효하지 않으면 서버 시작이 실패한다. 정상 시작한 서버는 운영 자동 발송과 관리자 테스트를 항상 제공한다.
+12. SMTP 호스트·포트·TLS 방식·계정·비밀번호·발신자 중 하나라도 누락되거나 유효하지 않으면 서버 시작이 실패한다. 정상 시작한 서버는 운영 자동 발송을 실행하고, 임시 모듈을 포함한 경우 관리자 테스트도 제공한다.
+13. 임시 테스트 디렉터리 세 곳과 운영 연결 세 곳만 제거한 별도 복사본이 서버·클라이언트 검증을 통과한다. 제거 후 TEST 대기 항목을 전송하지 않으며 기존 이력·UNKNOWN 확인은 유지하고 데이터 삭제를 요구하지 않는다.
