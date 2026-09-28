@@ -2,6 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import type { RoadmapEvent } from "./roadmap";
+import type { NotificationsResponse } from "./notification-types";
 import type {
   AppStore,
   AppUser,
@@ -240,6 +241,15 @@ export async function getMyIntents() {
 export async function getAdminDashboard() {
   try {
     return await apiFetch<AdminDashboardResponse>("/api/admin/dashboard");
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) return null;
+    throw error;
+  }
+}
+
+export async function getAdminNotifications() {
+  try {
+    return await apiFetch<NotificationsResponse>("/api/admin/notifications");
   } catch (error) {
     if (error instanceof ApiError && (error.status === 401 || error.status === 403)) return null;
     throw error;
