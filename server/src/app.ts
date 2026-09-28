@@ -1,8 +1,10 @@
+import { registerTemporaryEmailTestRoutes } from "./temporary/email-tests/index.js";
 import cookie from "@fastify/cookie";
 import formbody from "@fastify/formbody";
 import rateLimit from "@fastify/rate-limit";
 import Fastify, { type FastifyReply, type FastifyRequest, type FastifyServerOptions } from "fastify";
 import { ZodError } from "zod";
+import { registerNotificationRoutes } from "./routes/admin-notifications.js";
 import { registerAdminRoutes } from "./routes/admin.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerCronRoutes } from "./routes/cron.js";
@@ -82,6 +84,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await registerIntentRoutes(app);
   await registerMarketRoutes(app);
   await registerAdminRoutes(app);
+  await registerNotificationRoutes(app);
+  await registerTemporaryEmailTestRoutes(app);
   await registerCronRoutes(app);
 
   app.setErrorHandler((error, request, reply) => {

@@ -151,6 +151,7 @@ export default async function AdminPage() {
       <Top
         title="운영 관리"
         backLink={{ href: "/" }}
+        actions={<Link className="button secondary" href="/admin/notifications">이메일 알림 관리</Link>}
       />
 
       <Grid columns={4} className="mt-16">

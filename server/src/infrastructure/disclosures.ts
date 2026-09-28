@@ -1,4 +1,7 @@
+import { Prisma } from "@prisma/client";
 import type { Disclosure, DisclosureTrade, MarketCode, TradeSide } from "../domain/types.js";
+import { captureDisclosure, cancelDisclosureNotifications } from "./notifications/preparation.js";
+import { wakeNotifications } from "./notifications/signals.js";
 import { prisma } from "./prisma.js";
 
 type DisclosureRow = Awaited<ReturnType<typeof prisma.disclosure.findMany>>[number] & {
@@ -111,39 +114,26 @@ export async function upsertDisclosure(input: DisclosureInput) {
     orderedAt: trade.orderedAt
   }));
 
-  if (input.id) {
-    const row = await prisma.disclosure.update({
+  const disclosure = await prisma.$transaction(async (db) => {
+    const row = input.id ? await db.disclosure.update({
       where: { id: input.id },
-      data: {
-        title: input.title,
-        body: input.body,
-        trades: {
-          deleteMany: {},
-          create: tradeData
-        }
-      },
+      data: { title: input.title, body: input.body, trades: { deleteMany: {}, create: tradeData } },
+      include: { trades: { orderBy: { orderedAt: "desc" } } }
+    }) : await db.disclosure.create({
+      data: { title: input.title, body: input.body, trades: { create: tradeData } },
       include: { trades: { orderBy: { orderedAt: "desc" } } }
     });
-
-    return toDisclosure(row);
-  }
-
-  const row = await prisma.disclosure.create({
-    data: {
-      title: input.title,
-      body: input.body,
-      trades: {
-        create: tradeData
-      }
-    },
-    include: { trades: { orderBy: { orderedAt: "desc" } } }
-  });
-
-  return toDisclosure(row);
+    const result = toDisclosure(row);
+    await captureDisclosure(db, result, !input.id);
+    return result;
+  }, { timeout: 15_000, isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+  wakeNotifications();
+  return disclosure;
 }
 
 export async function deleteDisclosure(id: string) {
-  await prisma.disclosure.deleteMany({
-    where: { id }
-  });
+  await prisma.$transaction(async (db) => {
+    await cancelDisclosureNotifications(db, id);
+    await db.disclosure.deleteMany({ where: { id } });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
 }

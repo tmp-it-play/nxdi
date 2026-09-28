@@ -1,3 +1,4 @@
+import { wakeNotifications } from "./notifications/signals.js";
 import { randomUUID } from "node:crypto";
 import type {
   DividendForecast,
@@ -280,6 +281,7 @@ export async function upsertMonthlyDividendRecord(record: {
       referenceMarketValueKrw
     }
   });
+  wakeNotifications();
 }
 
 export async function deleteMonthlyDividendRecord(dividendMonth: string) {
