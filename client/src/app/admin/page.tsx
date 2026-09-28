@@ -4,6 +4,7 @@ import { AdminHoldingForm } from "./AdminHoldingForm";
 import { DisclosureForm } from "./DisclosureForm";
 import { DividendAllocationCalculator } from "./DividendAllocationCalculator";
 import { MonthlyDividendRecordForm } from "./MonthlyDividendRecordForm";
+import { NotificationManager } from "./notifications/NotificationManager";
 import { ApiMutationForm } from "@/app/components/api-mutation-form";
 import { AuthNavActions, DataGsmLoginButton } from "@/app/components/auth-actions";
 import { PaginatedPanelTable } from "@/app/components/client-pagination";
@@ -22,7 +23,7 @@ import {
   TdsSelect,
   Top
 } from "@/app/components/tds";
-import { getAdminDashboard, getSession } from "@/lib/api";
+import { getAdminDashboard, getAdminNotifications, getSession } from "@/lib/api";
 import { FLASH_COOKIE_NAME, getFlashMessages } from "@/lib/flash";
 import { formatCurrency, formatDateTime, formatKrw, formatNumber, statusLabel } from "@/lib/format";
 import { stockPrimaryLabel, stockSecondaryLabel } from "@/lib/stock-display";
@@ -127,6 +128,7 @@ export default async function AdminPage() {
     policy
   } = dashboard;
   const flashMessages = await getFlashMessages();
+  const notifications = await getAdminNotifications().catch(() => null);
   const completedInvestment = store.investmentIntents
     .filter((intent) => intent.status === "COMPLETED")
     .reduce((sum, intent) => sum + intent.amountKrw, 0);
@@ -151,7 +153,6 @@ export default async function AdminPage() {
       <Top
         title="운영 관리"
         backLink={{ href: "/" }}
-        actions={<Link className="button secondary" href="/admin/notifications">이메일 알림 관리</Link>}
       />
 
       <Grid columns={4} className="mt-16">
@@ -429,6 +430,8 @@ export default async function AdminPage() {
               </tr>
           ))}
         </PaginatedPanelTable>
+
+      <NotificationManager initialData={notifications} />
 
       <SectionHeader
         id="admin-investments"
