@@ -249,7 +249,7 @@ export async function getAdminDashboard() {
 
 export async function getAdminNotifications() {
   try {
-    return await apiFetch<NotificationsResponse>("/api/admin/notifications");
+    return await apiFetch<NotificationsResponse>("/api/admin/notifications?mode=PRODUCTION");
   } catch (error) {
     if (error instanceof ApiError && (error.status === 401 || error.status === 403)) return null;
     throw error;

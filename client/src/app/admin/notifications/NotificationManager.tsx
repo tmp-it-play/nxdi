@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
-import { Check, RefreshCw } from "lucide-react";
-import { Badge, Field, Grid, Metric, Notice, Panel, SectionHeader, TdsSelect } from "@/app/components/tds";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
+import { Check, RefreshCw, X } from "lucide-react";
+import { Badge, Field, Notice, Panel, SectionHeader, TdsSelect } from "@/app/components/tds";
 import { formatDateTime } from "@/lib/format";
 import type {
   EmailPreview,
@@ -79,13 +80,14 @@ function Status({ status }: { status: string }) {
   return <Badge tone={tone}>{statusLabel(status)}</Badge>;
 }
 
-async function request<T>(path: string, body?: unknown): Promise<T> {
+async function request<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const response = await fetch(path, {
     method: body === undefined ? "GET" : "POST",
     credentials: "same-origin",
     headers: body === undefined ? { Accept: "application/json" } : { Accept: "application/json", "Content-Type": "application/json" },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    cache: "no-store"
+    cache: "no-store",
+    signal
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) throw new Error(payload?.message ?? payload?.error ?? `요청을 처리하지 못했습니다 (${response.status}).`);
@@ -93,10 +95,9 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   return payload as T;
 }
 
-function Delivery({ delivery, disabled, allowRetry, onAction }: {
+function Delivery({ delivery, disabled, onAction }: {
   delivery: NotificationDelivery;
   disabled: boolean;
-  allowRetry: boolean;
   onAction: (path: string, body: Record<string, unknown>, successMessage: string) => Promise<void>;
 }) {
   const [evidence, setEvidence] = useState("");
@@ -122,13 +123,10 @@ function Delivery({ delivery, disabled, allowRetry, onAction }: {
         <input id={`message-id-${delivery.id}`} readOnly value={delivery.messageId} onFocus={(event) => event.currentTarget.select()} aria-label="메일 서버 조회용 Message-ID" />
       </div> : null}
       {delivery.nextAttemptAt && ["PENDING", "RETRY_WAIT"].includes(delivery.status) ? <p className={styles.help}>다음 시도: {formatDateTime(delivery.nextAttemptAt)}</p> : null}
-      {delivery.subject && delivery.html && delivery.text ? (
-        <details className={styles.textDetails}>
-          <summary>이 수신자에게 보낼 내용</summary>
-          <EmailBody subject={delivery.subject} html={delivery.html} text={delivery.text} />
-        </details>
+      {delivery.subject && (delivery.html || delivery.text) ? (
+        <EmailBody subject={delivery.subject} html={delivery.html ?? ""} text={delivery.text ?? ""} />
       ) : null}
-      {allowRetry && ["RETRY_WAIT", "FAILED", "BLOCKED_ADDRESS"].includes(delivery.status) ? (
+      {["RETRY_WAIT", "FAILED", "BLOCKED_ADDRESS"].includes(delivery.status) ? (
         <button className="secondary" disabled={disabled} type="button" onClick={() => onAction(
           `/api/admin/email-deliveries/${encodeURIComponent(delivery.id)}/retry`,
           { requestKey: actionKey("retry") },
@@ -143,7 +141,7 @@ function Delivery({ delivery, disabled, allowRetry, onAction }: {
           }, "외부 확인 결과를 기록했습니다.");
         }}>
           <fieldset className={styles.fieldset} disabled={disabled}>
-            <p className={styles.help}>메일 서버 기록 등으로 접수 여부를 확인한 뒤 결과와 근거를 기록해 주세요. {allowRetry ? "미접수 확인 후 재시도를 선택할 수 있습니다." : "테스트 이력의 확인 결과만 저장합니다."}</p>
+            <p className={styles.help}>메일 서버 기록 등으로 접수 여부를 확인한 뒤 결과와 근거를 기록해 주세요. 미접수 확인 후 재시도를 선택할 수 있습니다.</p>
             <div className={styles.formGrid}>
               <Field htmlFor={`outcome-${delivery.id}`} label="확인 결과">
                 <TdsSelect id={`outcome-${delivery.id}`} value={outcome} onChange={(event) => setOutcome(event.target.value)}>
@@ -159,8 +157,8 @@ function Delivery({ delivery, disabled, allowRetry, onAction }: {
           </fieldset>
         </form>
       ) : null}
-      <details className={styles.textDetails}>
-        <summary>시도 이력 {delivery.attempts.length}건</summary>
+      <section className={styles.attemptHistory}>
+        <h4>시도 이력 {delivery.attempts.length}건</h4>
         {delivery.attempts.length ? <ol className={styles.attempts}>{delivery.attempts.map((attempt) => (
           <li key={attempt.id}>
             <div className={styles.row}><strong>{attempt.attemptNumber}번째 시도 · {statusLabel(attempt.status)}</strong><time>{formatDateTime(attempt.createdAt)}</time></div>
@@ -168,24 +166,58 @@ function Delivery({ delivery, disabled, allowRetry, onAction }: {
             {attempt.errorMessage ? <p className={styles.error}>{ERROR_LABELS[attempt.errorMessage] ?? attempt.errorMessage}</p> : null}
           </li>
         ))}</ol> : <p className={styles.help}>아직 SMTP 전송을 시도하지 않았습니다.</p>}
-      </details>
+      </section>
     </article>
   );
 }
 
-export function NotificationManager({ initialData }: { initialData: NotificationsResponse }) {
-  const [data, setData] = useState(initialData);
+function Feedback({ busy, message, error }: { busy: string | null; message: string; error: string }) {
+  return (
+    <div aria-live="polite" className={styles.feedback}>
+      {busy ? <p role="status">{busy} 중…</p> : null}
+      {message ? <p className={styles.success}><Check size={16} aria-hidden="true" />{message}</p> : null}
+      {error ? <p role="alert" className={styles.error}>{error}</p> : null}
+    </div>
+  );
+}
+
+function NotificationDetailContent({ eventId, onChanged, onOpenDetail }: {
+  eventId: string;
+  onChanged: () => Promise<void>;
+  onOpenDetail: (id: string) => void;
+}) {
   const [detail, setDetail] = useState<NotificationDetail | null>(null);
   const [correctionReason, setCorrectionReason] = useState("");
   const [correction, setCorrection] = useState<EmailPreview | null>(null);
   const [correctionQueued, setCorrectionQueued] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>("상세 조회");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [filters, setFilters] = useState({ mode: "", type: "", status: "", period: "" });
-  const activeQuery = useRef("");
   const busyRef = useRef(false);
   const sendKeys = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const result = await request<NotificationDetail>(`${BASE}/${encodeURIComponent(eventId)}`, undefined, controller.signal);
+        if (result.event.mode !== "PRODUCTION") throw new Error("운영 발송 이력만 확인할 수 있습니다.");
+        const savedCorrection = result.event.status === "DRAFT" && result.event.reason
+          ? await request<EmailPreview>(`${BASE}/${encodeURIComponent(eventId)}/preview`, undefined, controller.signal)
+          : null;
+        if (controller.signal.aborted) return;
+        setDetail(result);
+        setCorrection(savedCorrection);
+        setCorrectionReason(result.event.reason ?? "");
+      } catch (cause) {
+        if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "상세 이력을 불러오지 못했습니다.");
+      } finally {
+        if (!controller.signal.aborted) setBusy(null);
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, [eventId]);
 
   async function run(label: string, action: () => Promise<void>) {
     if (busyRef.current) return;
@@ -198,132 +230,202 @@ export function NotificationManager({ initialData }: { initialData: Notification
     finally { busyRef.current = false; setBusy(null); }
   }
 
-  async function refreshList(query = activeQuery.current) {
-    const result = await request<NotificationsResponse>(`${BASE}${query ? `?${query}` : ""}`);
-    activeQuery.current = query;
-    setData(result);
-  }
-
-  async function openDetail(id: string) {
-    const result = await request<NotificationDetail>(`${BASE}/${encodeURIComponent(id)}`);
-    const savedCorrection = result.event.mode === "PRODUCTION" && result.event.status === "DRAFT" && result.event.reason
-      ? await request<EmailPreview>(`${BASE}/${encodeURIComponent(id)}/preview`)
-      : null;
-    setDetail(result);
-    setCorrection(savedCorrection);
-    setCorrectionReason(result.event.reason ?? "");
-    setCorrectionQueued(false);
-  }
-
   async function deliveryAction(path: string, body: Record<string, unknown>, successMessage: string) {
     await run("전송 상태 변경", async () => {
       await request(path, body);
       setMessage(successMessage);
-      if (detail) setDetail(await request<NotificationDetail>(`${BASE}/${encodeURIComponent(detail.event.id)}`));
-      await refreshList();
+      setDetail(await request<NotificationDetail>(`${BASE}/${encodeURIComponent(eventId)}`));
+      await onChanged();
     });
   }
 
-  function sendKey(id: string) {
-    return sendKeys.current[id] ??= crypto.randomUUID();
+  return (
+    <>
+      <Feedback busy={busy} message={message} error={error} />
+      {detail ? <>
+        <div className={styles.row}>
+          <div><strong>{TYPE_LABELS[detail.event.type]}</strong><p className={styles.help}>{detail.event.periodKey || "기간 없음"} · v{detail.event.version} · {formatDateTime(detail.event.createdAt)}</p></div>
+          <div className={styles.actions}>
+            <Status status={detail.event.status} />
+            <button className="secondary" type="button" disabled={Boolean(busy)} onClick={() => run("상세 새로고침", async () => {
+              setDetail(await request<NotificationDetail>(`${BASE}/${encodeURIComponent(eventId)}`));
+              await onChanged();
+            })}><RefreshCw size={16} aria-hidden="true" />새로고침</button>
+          </div>
+        </div>
+        {detail.event.preparationError ? <Notice>{ERROR_LABELS[detail.event.preparationError] ?? detail.event.preparationError}</Notice> : null}
+        {detail.event.reason ? <p>정정 사유: {detail.event.reason}</p> : null}
+        {detail.deliveries.length ? detail.deliveries.map((delivery) => (
+          <Delivery key={`${delivery.id}:${delivery.status}`} delivery={delivery} disabled={Boolean(busy)} onAction={deliveryAction} />
+        )) : <p className={styles.help}>준비된 수신자별 전송 항목이 없습니다.</p>}
+        {["READY", "COMPLETED", "PARTIAL_FAILURE", "NEEDS_REVIEW", "DRAFT"].includes(detail.event.status) ? <div className={styles.correction}>
+          <h3>정정 안내</h3>
+          <p className={styles.help}>현재 원본 데이터로 새 버전을 준비합니다. 수신자별 내용과 정정 사유를 확인한 뒤 발송합니다.</p>
+          <form onSubmit={(event) => {
+            event.preventDefault();
+            void run("정정 미리보기 생성", async () => {
+              setCorrection(await request<EmailPreview>(`${BASE}/${encodeURIComponent(eventId)}/corrections`, { reason: correctionReason.trim() }));
+              setCorrectionQueued(false);
+              await onChanged();
+            });
+          }}>
+            <fieldset className={styles.fieldset} disabled={Boolean(busy)}>
+              <Field htmlFor="correction-reason" label="정정 사유"><textarea id="correction-reason" required rows={3} maxLength={1000} value={correctionReason} onChange={(event) => { setCorrectionReason(event.target.value); setCorrection(null); setCorrectionQueued(false); }} /></Field>
+              <button className="secondary" type="submit" disabled={!correctionReason.trim()}>정정 미리보기 만들기</button>
+            </fieldset>
+          </form>
+          {correction ? <div className={styles.savedPreview}>
+            <EmailBody {...correction} />
+            <p className={styles.help}>월별 지급액은 대상자 한 명의 미리보기입니다. 전체 수신자별 금액은 이 새 버전의 상세 이력에서 확인할 수 있습니다.</p>
+            <div className={styles.actions}>
+              <button className="secondary" type="button" disabled={Boolean(busy)} onClick={() => onOpenDetail(correction.id)}>새 버전 수신자별 상세</button>
+              <button type="button" disabled={Boolean(busy) || correctionQueued} onClick={() => run("정정 발송 요청", async () => {
+                const requestKey = sendKeys.current[correction.id] ??= crypto.randomUUID();
+                await request(`${BASE}/${encodeURIComponent(correction.id)}/send`, { requestKey });
+                setCorrectionQueued(true);
+                setMessage("정정 안내 발송을 요청했습니다.");
+                setDetail(await request<NotificationDetail>(`${BASE}/${encodeURIComponent(eventId)}`));
+                await onChanged();
+              })}>{correctionQueued ? "정정 발송 요청됨" : "확인한 정정 안내 발송"}</button>
+            </div>
+          </div> : null}
+        </div> : null}
+      </> : null}
+    </>
+  );
+}
+
+function NotificationDetailDialog({ eventId, onClose, onChanged, onOpenDetail }: {
+  eventId: string;
+  onClose: () => void;
+  onChanged: () => Promise<void>;
+  onOpenDetail: (id: string) => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const alreadyLocked = document.body.classList.contains("modal-open");
+    document.body.classList.add("modal-open");
+    dialog?.showModal();
+    closeRef.current?.focus();
+    return () => {
+      dialog?.close();
+      if (!alreadyLocked) document.body.classList.remove("modal-open");
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+    };
+  }, []);
+
+  useEffect(() => {
+    dialogRef.current?.scrollTo({ top: 0 });
+    closeRef.current?.focus({ preventScroll: true });
+  }, [eventId]);
+
+  return createPortal(
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="notification-detail-title"
+      className={`holding-modal ${styles.modal}`}
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();
+      }}
+    >
+      <header className="holding-modal-header">
+        <div><h3 id="notification-detail-title">이메일 발송 상세</h3><p>수신자별 본문과 전송 결과를 확인합니다.</p></div>
+        <button ref={closeRef} aria-label="닫기" className="ghost holding-modal-close" type="button" onClick={onClose}><X size={18} aria-hidden="true" /></button>
+      </header>
+      {/* Each selection owns its async state; a closed or replaced detail cannot reopen the dialog. */}
+      <NotificationDetailContent key={eventId} eventId={eventId} onChanged={onChanged} onOpenDetail={onOpenDetail} />
+    </dialog>,
+    document.body
+  );
+}
+
+export function NotificationManager({ initialData }: { initialData: NotificationsResponse | null }) {
+  const [data, setData] = useState(initialData);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState(initialData ? "" : "발송 이력을 불러오지 못했습니다. 새로고침해 주세요.");
+  const [filters, setFilters] = useState({ type: "", status: "", period: "" });
+  const activeQuery = useRef("mode=PRODUCTION");
+  const busyRef = useRef(false);
+  const listRequest = useRef(0);
+
+  async function refreshList(query = activeQuery.current) {
+    const requestId = ++listRequest.current;
+    const params = new URLSearchParams(query);
+    params.set("mode", "PRODUCTION");
+    const result = await request<NotificationsResponse>(`${BASE}?${params}`);
+    if (requestId !== listRequest.current) return;
+    activeQuery.current = params.toString();
+    setData(result);
   }
 
-  async function filterList(event: FormEvent<HTMLFormElement>) {
+  async function loadList(query = activeQuery.current) {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy("이력 조회");
+    setError("");
+    try { await refreshList(query); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "이력을 불러오지 못했습니다."); }
+    finally { busyRef.current = false; setBusy(null); }
+  }
+
+  function filterList(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const query = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => { if (value) query.set(key, value); });
-    await run("이력 조회", () => refreshList(query.toString()));
+    Object.entries(filters).forEach(([key, value]) => { if (value.trim()) query.set(key, value.trim()); });
+    void loadList(query.toString());
   }
 
   function movePage(page: number) {
     const query = new URLSearchParams(activeQuery.current);
     query.set("page", String(page));
-    void run("이력 조회", () => refreshList(query.toString()));
+    void loadList(query.toString());
   }
 
   return (
     <div className={styles.manager}>
-      <Grid columns={3} className="mt-16">
-        <Metric label="새 공시" value="등록 후 자동 발송" />
-        <Metric label="월별 지급액" value="매월 1일" />
-        <Metric label="분기 보유확인서" value="1·4·7·10월 1일" />
-      </Grid>
-      <div aria-live="polite" className={styles.feedback}>
-        {busy ? <p role="status">{busy} 중…</p> : null}
-        {message ? <p className={styles.success}><Check size={16} aria-hidden="true" />{message}</p> : null}
-        {error ? <p role="alert" className={styles.error}>{error}</p> : null}
-      </div>
-
-      <SectionHeader title="발송 이력" description="SMTP 접수는 메일 서버가 접수했다는 뜻이며, 수신함 도착 여부와는 다를 수 있습니다."
-        actions={<button type="button" className="secondary" disabled={Boolean(busy)} onClick={() => run("이력 새로고침", async () => {
-          await refreshList();
-          if (detail) setDetail(await request<NotificationDetail>(`${BASE}/${encodeURIComponent(detail.event.id)}`));
-        })}><RefreshCw size={16} aria-hidden="true" />새로고침</button>} />
+      <SectionHeader id="admin-notifications" title="이메일 발송 이력" />
       <Panel>
+        <div className="admin-panel-header">
+          <h2>발송 이력</h2>
+          <button type="button" className="secondary" disabled={Boolean(busy)} onClick={() => loadList()}><RefreshCw size={16} aria-hidden="true" />새로고침</button>
+        </div>
+        <p className={styles.help}>SMTP 접수는 메일 서버가 접수했다는 뜻이며, 수신함 도착 여부와는 다를 수 있습니다.</p>
+        <Feedback busy={busy} message="" error={error} />
         <form onSubmit={filterList}>
           <fieldset className={`${styles.fieldset} ${styles.filters}`} disabled={Boolean(busy)}>
-            <Field htmlFor="filter-mode" label="발송 모드"><TdsSelect id="filter-mode" value={filters.mode} onChange={(event) => setFilters({ ...filters, mode: event.target.value })}><option value="">전체</option><option value="TEST">테스트</option><option value="PRODUCTION">운영</option></TdsSelect></Field>
-            <Field htmlFor="filter-type" label="종류"><TdsSelect id="filter-type" value={filters.type} onChange={(event) => setFilters({ ...filters, type: event.target.value })}><option value="">전체</option>{Object.entries(TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</TdsSelect></Field>
-            <Field htmlFor="filter-status" label="준비 상태"><TdsSelect id="filter-status" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">전체</option>{["DRAFT", "WAITING_DATA", "READY", "COMPLETED", "PARTIAL_FAILURE", "NEEDS_REVIEW", "NO_RECIPIENTS", "SKIPPED", "CANCELLED"].map((value) => <option key={value} value={value}>{statusLabel(value)}</option>)}</TdsSelect></Field>
-            <Field htmlFor="filter-period" label="귀속 기간"><input id="filter-period" value={filters.period} onChange={(event) => setFilters({ ...filters, period: event.target.value })} placeholder="2026-09 또는 2026-Q4" /></Field>
+            <Field htmlFor="notification-filter-type" label="종류"><TdsSelect id="notification-filter-type" value={filters.type} onChange={(event) => setFilters({ ...filters, type: event.target.value })}><option value="">전체</option>{Object.entries(TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</TdsSelect></Field>
+            <Field htmlFor="notification-filter-status" label="준비 상태"><TdsSelect id="notification-filter-status" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">전체</option>{["DRAFT", "WAITING_DATA", "READY", "COMPLETED", "PARTIAL_FAILURE", "NEEDS_REVIEW", "NO_RECIPIENTS", "SKIPPED", "CANCELLED"].map((value) => <option key={value} value={value}>{statusLabel(value)}</option>)}</TdsSelect></Field>
+            <Field htmlFor="notification-filter-period" label="귀속 기간"><input id="notification-filter-period" value={filters.period} onChange={(event) => setFilters({ ...filters, period: event.target.value })} placeholder="2026-09 또는 2026-Q4" /></Field>
             <button className="secondary" type="submit">조회</button>
           </fieldset>
         </form>
         <div className={styles.tableScroll}>
           <table className={styles.table}>
-            <thead><tr><th>종류 / 모드</th><th>기간 / 버전</th><th>준비 상태</th><th>전송 결과</th><th>생성일</th><th>관리</th></tr></thead>
-            <tbody>{data.items.length ? data.items.map((item) => <tr key={item.id}>
-              <td><strong>{TYPE_LABELS[item.type]}</strong><p className={styles.help}>{item.mode === "TEST" ? "테스트" : "운영"}</p></td>
+            <thead><tr><th>종류</th><th>기간 / 버전</th><th>준비 상태</th><th>전송 결과</th><th>생성일</th><th>관리</th></tr></thead>
+            <tbody>{data?.items.length ? data.items.map((item) => <tr key={item.id}>
+              <td><strong>{TYPE_LABELS[item.type]}</strong></td>
               <td>{item.periodKey || "—"}<p className={styles.help}>v{item.version}</p></td>
               <td><Status status={item.status} />{item.preparationError ? <p className={styles.error}>{ERROR_LABELS[item.preparationError] ?? item.preparationError}</p> : null}</td>
               <td><span>접수 {item.acceptedCount} / 전체 {item.deliveryCount}</span><p className={styles.help}>실패 {item.failedCount} · 결과 불명 {item.unknownCount}</p></td>
               <td>{formatDateTime(item.createdAt)}</td>
-              <td><button type="button" className="secondary" disabled={Boolean(busy)} onClick={() => run("상세 조회", () => openDetail(item.id))}>상세</button></td>
-            </tr>) : <tr><td colSpan={6} className={styles.empty}>조건에 맞는 발송 이력이 없습니다.</td></tr>}</tbody>
+              <td><button type="button" className="secondary" disabled={Boolean(busy)} onClick={() => setSelectedId(item.id)}>상세</button></td>
+            </tr>) : <tr><td colSpan={6} className={styles.empty}>{data ? "조건에 맞는 발송 이력이 없습니다." : "발송 이력을 불러올 수 없습니다."}</td></tr>}</tbody>
           </table>
         </div>
-        <div className={styles.pagination}>
+        {data ? <div className={styles.pagination}>
           <span>전체 {data.total}건 · {data.page} / {Math.max(1, Math.ceil(data.total / data.pageSize))}페이지</span>
           <div className={styles.actions}><button type="button" className="secondary" disabled={Boolean(busy) || data.page <= 1} onClick={() => movePage(data.page - 1)}>이전</button><button type="button" className="secondary" disabled={Boolean(busy) || data.page * data.pageSize >= data.total} onClick={() => movePage(data.page + 1)}>다음</button></div>
-        </div>
+        </div> : null}
       </Panel>
-
-      {detail ? <>
-        <SectionHeader title={`${TYPE_LABELS[detail.event.type]} 상세`} description={`${detail.event.mode === "TEST" ? "테스트" : "운영"} · ${detail.event.periodKey || "기간 없음"} · v${detail.event.version}`} actions={<button className="ghost" type="button" disabled={Boolean(busy)} onClick={() => setDetail(null)}>닫기</button>} />
-        <Panel>
-          <div className={styles.row}><Status status={detail.event.status} /><span className={styles.help}>{formatDateTime(detail.event.createdAt)}</span></div>
-          {detail.event.preparationError ? <Notice>{ERROR_LABELS[detail.event.preparationError] ?? detail.event.preparationError}</Notice> : null}
-          {detail.event.reason ? <p>정정 사유: {detail.event.reason}</p> : null}
-          {detail.deliveries.length ? detail.deliveries.map((delivery) => <Delivery key={`${delivery.id}:${delivery.status}`} delivery={delivery} disabled={Boolean(busy)} allowRetry={detail.event.mode === "PRODUCTION"} onAction={deliveryAction} />) : <p className={styles.help}>준비된 수신자별 전송 항목이 없습니다.</p>}
-          {detail.event.mode === "PRODUCTION" && ["READY", "COMPLETED", "PARTIAL_FAILURE", "NEEDS_REVIEW", "DRAFT"].includes(detail.event.status) ? <div className={styles.correction}>
-            <h3>정정 안내</h3>
-            <p className={styles.help}>현재 원본 데이터로 새 버전을 준비합니다. 수신자별 내용과 정정 사유를 확인한 뒤 발송합니다.</p>
-            <form onSubmit={(event) => { event.preventDefault(); void run("정정 미리보기 생성", async () => {
-              setCorrection(await request<EmailPreview>(`${BASE}/${encodeURIComponent(detail.event.id)}/corrections`, { reason: correctionReason.trim() }));
-              setCorrectionQueued(false);
-              await refreshList();
-            }); }}>
-              <fieldset className={styles.fieldset} disabled={Boolean(busy)}>
-                <Field htmlFor="correction-reason" label="정정 사유"><textarea id="correction-reason" required rows={3} maxLength={1000} value={correctionReason} onChange={(event) => { setCorrectionReason(event.target.value); setCorrection(null); setCorrectionQueued(false); }} /></Field>
-                <button className="secondary" type="submit" disabled={!correctionReason.trim()}>정정 미리보기 만들기</button>
-              </fieldset>
-            </form>
-            {correction ? <div className={styles.savedPreview}>
-              <EmailBody {...correction} />
-              <p className={styles.help}>월별 지급액은 대상자 한 명의 미리보기입니다. 전체 수신자별 금액은 이 새 버전의 상세 이력에서 확인할 수 있습니다.</p>
-              <div className={styles.actions}>
-                <button className="secondary" type="button" disabled={Boolean(busy)} onClick={() => run("정정 상세 조회", () => openDetail(correction.id))}>새 버전 수신자별 상세</button>
-                <button type="button" disabled={Boolean(busy) || correctionQueued} onClick={() => run("정정 발송 요청", async () => {
-                  await request(`${BASE}/${encodeURIComponent(correction.id)}/send`, { requestKey: sendKey(correction.id) });
-                  setCorrectionQueued(true);
-                  setMessage("정정 안내 발송을 요청했습니다.");
-                  await refreshList();
-                })}>{correctionQueued ? "정정 발송 요청됨" : "확인한 정정 안내 발송"}</button>
-              </div>
-            </div> : null}
-          </div> : null}
-        </Panel>
-      </> : null}
+      {selectedId ? <NotificationDetailDialog eventId={selectedId} onClose={() => setSelectedId(null)} onChanged={refreshList} onOpenDetail={setSelectedId} /> : null}
     </div>
   );
 }

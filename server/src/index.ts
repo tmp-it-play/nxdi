@@ -1,4 +1,3 @@
-import { temporaryEmailTestDeliveryPolicy } from "./temporary/email-tests/index.js";
 import type { FastifyRequest } from "fastify";
 import { loadEnvironment } from "./config/env.js";
 import { buildApp } from "./app.js";
@@ -34,7 +33,7 @@ const app = await buildApp({
 });
 await app.listen({ host: environment.HOST, port: environment.PORT });
 const scheduler = startScheduler(app.log);
-const notificationWorker = startNotificationWorker(environment, app.log, [temporaryEmailTestDeliveryPolicy]);
+const notificationWorker = startNotificationWorker(environment, app.log);
 
 let closing = false;
 async function close(signal: string) {
