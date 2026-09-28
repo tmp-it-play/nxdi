@@ -77,8 +77,8 @@ export async function sendNotificationDraft(id: string, mode: "TEST" | "PRODUCTI
 
 export async function createCorrection(id: string, reason: string, actor: string) {
   const original = await prisma.notificationEvent.findUnique({ where: { id } });
-  const correction = planNotificationCorrection(original, reason);
   requireCondition(original, "NOT_FOUND", "원본을 찾을 수 없습니다.", 404);
+  const correction = planNotificationCorrection(original, reason);
   const now = new Date();
   const portfolio = original.type === "DISCLOSURE" ? undefined : await getManualPortfolioOverview();
   const event = await prisma.$transaction(async (db) => {
