@@ -22,3 +22,7 @@ docker compose -f "$COMPOSE_FILE" config --quiet
 docker compose -f "$COMPOSE_FILE" build --pull
 
 "${SCRIPT_DIR}/rename_tables.sh"
+
+# Existing installations must complete the documented, verified one-time baseline.
+# migrate deploy refuses unbaselined non-empty databases; never use db push here.
+docker compose -f "$COMPOSE_FILE" run --rm --no-deps server npm run db:migrate

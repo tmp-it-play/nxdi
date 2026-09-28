@@ -31,6 +31,9 @@ COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/prisma ./prisma
 COPY --from=build --chown=node:node /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build --chown=node:node /app/node_modules/@prisma/client ./node_modules/@prisma/client
+COPY --from=build --chown=node:node /app/node_modules/@prisma/engines ./node_modules/@prisma/engines
+COPY --chown=node:node scripts/notification-baseline.mjs ./scripts/notification-baseline.mjs
+COPY --chown=node:node scripts/bootstrap-notification-recipients.ts ./scripts/bootstrap-notification-recipients.ts
 
 USER node
 

@@ -16,6 +16,9 @@
     "test:coverage": "node --import tsx --test --experimental-test-coverage 'test/**/*.test.ts'",
     "verify": "npm run lint && npm run typecheck && npm test && npm run build",
     "prisma:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:notification-baseline": "node scripts/notification-baseline.mjs",
+    "db:bootstrap-notification-recipients": "node scripts/bootstrap-notification-recipients.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:encrypt-sensitive": "tsx scripts/encrypt-sensitive-fields.ts",
     "db:backfill-roadmap": "tsx scripts/backfill-roadmap-events.ts"
@@ -30,6 +33,8 @@
     "fastify": "^5.6.2",
     "mysql2": "^3.15.3",
     "node-cron": "^4.2.1",
+    "nodemailer": "10.0.12",
+    "prisma": "^6.19.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -37,7 +42,6 @@
     "@types/adm-zip": "^0.5.8",
     "@types/node": "^24.10.1",
     "eslint": "^9.39.1",
-    "prisma": "^6.19.3",
     "tsx": "^4.23.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.0"
