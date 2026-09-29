@@ -142,7 +142,7 @@ async function requestJson<T>(url: string, init: RequestInit) {
   const response = await fetch(url, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      ...(init.body == null ? {} : { "Content-Type": "application/json" }),
       ...init.headers
     }
   });
