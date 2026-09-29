@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import type { DeliveryClaim, DeliveryOutcome, DeliveryRepository, Submission } from "../../application/email-delivery-service.js";
+import { validEmail } from "../../application/notification-recipient-addresses.js";
 import { prisma } from "../prisma.js";
-import { lockEvent, refreshEventStatus, validEmail } from "./shared.js";
+import { lockEvent, refreshEventStatus } from "./shared.js";
 
 // SMTP transport has bounded timeouts; the lease is deliberately longer than its whole submission.
 const LEASE_MS = 10 * 60_000;
@@ -51,16 +52,14 @@ export class PrismaDeliveryRepository implements DeliveryRepository {
         await db.emailDelivery.update({ where: { id: claim.id }, data: { status: event.status === "CANCELLED" ? "CANCELLED" : "PENDING", claimToken: null, claimedUntil: null } });
         return null;
       }
-      const contact = delivery.userId ? await db.notificationRecipient.findUnique({ where: { userId: delivery.userId } }) : null;
-      const recipient = contact && !contact.errorCode ? { email: contact.email, addressVersion: contact.addressVersion } : null;
-      const to = validEmail(recipient?.email);
+      const to = validEmail(delivery.recipientEmail);
       if (!to) {
-        await db.emailDelivery.update({ where: { id: claim.id }, data: { status: "BLOCKED_ADDRESS", lastErrorCode: "RECIPIENT_ADDRESS_REQUIRED", claimToken: null, claimedUntil: null } });
+        await db.emailDelivery.update({ where: { id: claim.id }, data: { status: "BLOCKED_ADDRESS", lastErrorCode: delivery.lastErrorCode ?? "RECIPIENT_ADDRESS_REQUIRED", claimToken: null, claimedUntil: null } });
         await refreshEventStatus(db, event.id);
         return null;
       }
       const attemptNumber = delivery.attemptCount + 1;
-      await db.emailDeliveryAttempt.create({ data: { deliveryId: claim.id, number: attemptNumber, toEmail: to, addressVersion: recipient?.addressVersion, status: "SUBMITTING", startedAt: now } });
+      await db.emailDeliveryAttempt.create({ data: { deliveryId: claim.id, number: attemptNumber, toEmail: to, status: "SUBMITTING", startedAt: now } });
       await db.emailDelivery.update({ where: { id: claim.id }, data: { status: "SUBMITTING", attemptCount: attemptNumber, recipientEmail: to, claimedUntil: new Date(now.getTime() + LEASE_MS) } });
       return { ...claim, attemptNumber, to, subject: delivery.subject, html: delivery.html, text: delivery.text, messageId: delivery.messageId };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });

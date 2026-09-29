@@ -1,4 +1,5 @@
 import { planNotificationCorrection, planNotificationDraftSend } from "../../application/notification-request-policy.js";
+import { validEmail } from "../../application/notification-recipient-addresses.js";
 import { Prisma, type NotificationEvent } from "@prisma/client";
 import { type NotificationType } from "../../domain/notifications/index.js";
 import { getManualPortfolioOverview } from "../portfolio-store.js";
@@ -7,7 +8,7 @@ import { prepareProduction, savePrepared } from "./preparation.js";
 import { addDeliveries, json, lockEvent, refreshEventStatus, requireCondition, type PreparedRecipient } from "./shared.js";
 
 const object = (value: Prisma.JsonValue | null) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
-const pendingStatuses = ["FAILED", "BLOCKED_ADDRESS", "RETRY_WAIT"];
+const pendingStatuses = ["FAILED", "RETRY_WAIT"];
 function summary(event: NotificationEvent, statuses: string[]) {
   return { id: event.id, type: event.type, mode: event.mode, status: event.status, periodKey: event.period ?? "", version: event.revision,
     reason: event.reason, createdAt: event.createdAt.toISOString(), updatedAt: event.updatedAt.toISOString(),
@@ -94,7 +95,8 @@ export async function actOnDelivery(id: string, action: { kind: "retry"; request
     requireCondition(event.status !== "CANCELLED", "CANCELLED", "취소된 메일은 다시 발송할 수 없습니다.");
     if (action.kind === "retry") {
       requireCondition(event.mode === "PRODUCTION", "RETRY_NOT_ALLOWED", "운영 메일만 재시도할 수 있습니다.");
-      requireCondition(pendingStatuses.includes(delivery.status), "RETRY_NOT_ALLOWED", "실패하거나 주소 확인이 필요한 항목만 재시도할 수 있습니다.");
+      requireCondition(pendingStatuses.includes(delivery.status), "RETRY_NOT_ALLOWED", "저장된 수신 주소가 있는 실패 항목만 재시도할 수 있습니다.");
+      requireCondition(validEmail(delivery.recipientEmail), "RETRY_NOT_ALLOWED", "수신 주소가 없는 항목은 재시도할 수 없습니다. 정정 발송을 준비해 주세요.");
       await db.emailDelivery.update({ where: { id }, data: { status: "PENDING", nextAttemptAt: new Date(), lastErrorCode: null, payload: json({ ...payload, actions: [...actions, { ...action, actor, at: new Date().toISOString() }] }) } });
     } else {
       requireCondition(delivery.status === "UNKNOWN", "RESOLUTION_NOT_ALLOWED", "결과 불명 항목만 확인 처리할 수 있습니다.");
