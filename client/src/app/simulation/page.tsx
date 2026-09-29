@@ -79,7 +79,6 @@ export default async function SimulationPage({ searchParams }: SimulationPagePro
                 name="amountKrw"
                 placeholder="예: 100,000"
                 required
-                step="10000"
               />
               <p className="field-help">
                 {formatKrw(policy.minInvestmentKrw)} 이상 {formatKrw(policy.maxInvestmentKrw)} 이하로 입력하면 쉼표가 자동으로 표시됩니다.
