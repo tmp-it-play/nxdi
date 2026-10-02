@@ -1,13 +1,12 @@
 import { NotificationRequestError as NotificationError } from "../../application/notification-request-policy.js";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
-import { z } from "zod";
+import { selectNotificationAddresses } from "../../application/notification-recipient-addresses.js";
 import type { NotificationStore, RenderedEmail } from "../../domain/notifications/index.js";
 import { prisma } from "../prisma.js";
 
 export type NotificationDb = Prisma.TransactionClient;
 export const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
-export const validEmail = (value: string | null | undefined) => value && z.string().email().max(254).safeParse(value).success && !/[\r\n]/.test(value) ? value : null;
 export { NotificationError };
 export function requireCondition(condition: unknown, code: string, message: string, status = 409): asserts condition {
   if (!condition) throw new NotificationError(code, message, status);
@@ -27,20 +26,36 @@ export async function notificationStore(db: NotificationDb = prisma): Promise<No
   return { investmentIntents: investmentIntents.map(map), withdrawalIntents: withdrawalIntents.map(map) };
 }
 export type PreparedRecipient = { userId: string | null; userName: string; email?: string; recipientKey?: string; rendered: RenderedEmail; facts?: unknown };
-export async function addDeliveries(db: NotificationDb, eventId: string, recipients: PreparedRecipient[], now: Date, draft = false) {
+export async function addDeliveries(db: NotificationDb, eventId: string, recipients: PreparedRecipient[], now: Date) {
   if (!recipients.length) return;
-  const contacts = await db.notificationRecipient.findMany({ where: { userId: { in: recipients.flatMap((r) => r.userId ? [r.userId] : []) } } });
-  const byUser = new Map(contacts.map((contact) => [contact.userId, contact]));
-  await db.emailDelivery.createMany({ data: recipients.map((r) => {
-    const contact = r.userId ? byUser.get(r.userId) : undefined;
-    const address = validEmail(r.email ?? (contact?.errorCode ? null : contact?.email));
-    const recipientKey = r.recipientKey ?? r.userId ?? address;
-    requireCondition(recipientKey, "RECIPIENT_KEY_REQUIRED", "발송 대상을 식별할 수 없습니다.");
-    return {
-      eventId, recipientKey, userId: r.userId, recipientEmail: address,
-      recipientName: r.userName, ...r.rendered, payload: json(r.facts ?? {}),
-      messageId: `<${randomUUID()}@kimtaeeun.site>`, status: draft ? "DRAFT" : address ? "PENDING" : "BLOCKED_ADDRESS", nextAttemptAt: now
-    };
+  const userIds = [...new Set(recipients.flatMap((recipient) => recipient.userId ? [recipient.userId] : []))];
+  const intents = await db.investmentIntent.findMany({
+    where: { userId: { in: userIds }, status: "COMPLETED" },
+    select: { userId: true, userEmail: true, status: true }
+  });
+  const addresses = new Map(userIds.map((userId) => [userId, selectNotificationAddresses(intents, userId)]));
+  await db.emailDelivery.createMany({ data: recipients.flatMap((recipient) => {
+    const identity = recipient.userId ?? recipient.recipientKey;
+    requireCondition(identity, "RECIPIENT_KEY_REQUIRED", "발송 대상을 식별할 수 없습니다.");
+    const selection = recipient.userId ? addresses.get(recipient.userId) : undefined;
+    const emails = selection?.emails ?? [];
+    const targets: Array<{ email: string | null; errorCode: string | null }> = emails.map((email) => ({ email, errorCode: null }));
+    if (selection?.hasInvalidEmail || !targets.length) {
+      targets.push({ email: null, errorCode: selection?.hasInvalidEmail ? "INVALID_EMAIL" : "RECIPIENT_ADDRESS_REQUIRED" });
+    }
+    return targets.map(({ email, errorCode }) => ({
+      eventId,
+      recipientKey: createHash("sha256").update(identity).update("\0").update(email?.toLowerCase() ?? "invalid").digest("hex"),
+      userId: recipient.userId,
+      recipientEmail: email,
+      recipientName: recipient.userName,
+      ...recipient.rendered,
+      payload: json(recipient.facts ?? {}),
+      messageId: `<${randomUUID()}@kimtaeeun.site>`,
+      status: email ? "PENDING" : "BLOCKED_ADDRESS",
+      lastErrorCode: errorCode,
+      nextAttemptAt: now
+    }));
   }) });
 }
 export async function refreshEventStatus(db: NotificationDb, eventId: string) {

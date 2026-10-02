@@ -9,8 +9,6 @@ import {
 } from "../infrastructure/datagsm.js";
 import { errorFlash, redirectWithFlash, successFlash } from "../http/flash.js";
 
-import { rememberNotificationRecipient } from "../infrastructure/notifications/contacts.js";
-
 const OAUTH_STATE_COOKIE = "datagsm_oauth_state";
 const OAUTH_VERIFIER_COOKIE = "datagsm_code_verifier";
 
@@ -59,9 +57,6 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       const token = await exchangeDataGsmCode({ code: query.code, codeVerifier: verifier, redirectUri });
       const user = toEligibleAppUser(await fetchDataGsmUser(token));
       if (!user) return redirectWithFlash(reply, "/", errorFlash("not_eligible"), 307);
-      await rememberNotificationRecipient(user).catch(() => {
-        request.log.warn({ code: "NOTIFICATION_CONTACT_SAVE_FAILED" }, "Notification contact could not be saved");
-      });
       setUserSession(reply, user);
       return reply.redirect("/");
     } catch (error) {

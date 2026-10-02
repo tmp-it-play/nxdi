@@ -53,8 +53,8 @@ const ERROR_LABELS: Record<string, string> = {
   CONTACT_MISSING: "사용자의 DataGSM 이메일을 확인해 주세요.",
   CONTACT_INVALID: "사용자의 DataGSM 이메일 형식을 확인해 주세요.",
   CONTACT_CONFLICT: "저장된 이메일이 서로 다릅니다. DataGSM 재로그인이 필요합니다.",
-  RECIPIENT_ADDRESS_REQUIRED: "수신자의 DataGSM 이메일을 확인한 뒤 재시도해 주세요.",
-  INVALID_EMAIL: "DataGSM 이메일 형식을 확인해 주세요.",
+  RECIPIENT_ADDRESS_REQUIRED: "완료된 투자 의향서의 신청자 이메일을 확인하고 정정 발송을 준비해 주세요.",
+  INVALID_EMAIL: "투자 의향서의 신청자 이메일 형식을 확인하고 정정 발송을 준비해 주세요.",
   SMTP_AUTH_OR_CONFIG: "SMTP 인증 정보 또는 서버 설정을 확인해 주세요.",
   SMTP_TLS: "SMTP 보안 연결을 확인하지 못했습니다.",
   SMTP_REJECTED: "메일 서버가 전송을 거절했습니다.",
@@ -113,7 +113,7 @@ function Delivery({ delivery, disabled, onAction }: {
       <div className={styles.row}>
         <div>
           <strong>{delivery.recipientName || "수신자"}</strong>
-          <p className={styles.help}>{delivery.recipientEmail || (delivery.status === "DRAFT" ? "발송 시 최신 DataGSM 이메일 사용" : "이메일 확인 필요")}</p>
+          <p className={styles.help}>{delivery.recipientEmail || (delivery.status === "DRAFT" ? "발송 준비 시 의향서의 신청자 이메일 사용" : "이메일 확인 필요")}</p>
         </div>
         <Status status={delivery.status} />
       </div>
@@ -126,7 +126,7 @@ function Delivery({ delivery, disabled, onAction }: {
       {delivery.subject && (delivery.html || delivery.text) ? (
         <EmailBody subject={delivery.subject} html={delivery.html ?? ""} text={delivery.text ?? ""} />
       ) : null}
-      {["RETRY_WAIT", "FAILED", "BLOCKED_ADDRESS"].includes(delivery.status) ? (
+      {delivery.recipientEmail && ["RETRY_WAIT", "FAILED"].includes(delivery.status) ? (
         <button className="secondary" disabled={disabled} type="button" onClick={() => onAction(
           `/api/admin/email-deliveries/${encodeURIComponent(delivery.id)}/retry`,
           { requestKey: actionKey("retry") },
