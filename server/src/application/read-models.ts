@@ -336,7 +336,7 @@ export async function intentsReadModel(userId: string) {
 export async function adminDashboardReadModel() {
   const roadmapToday = kstDateKey();
   const roadmapHorizon = roadmapHorizonEndDate(roadmapToday);
-  const [store, portfolio, dividendRecords, monthlyDividendRecords, disclosures, roadmapEvents, payoutRows, payoutModes, realized] = await Promise.all([
+  const [store, portfolio, dividendRecords, monthlyDividendRecords, disclosures, roadmapEvents, payoutRows, payoutModes] = await Promise.all([
     readStore(),
     getManualPortfolioOverview(),
     readDividendRecords(),
@@ -344,8 +344,7 @@ export async function adminDashboardReadModel() {
     readDisclosures(),
     readRoadmapEvents(),
     readMonthlyInvestorPayouts(),
-    readPayoutModes(),
-    readRealizedProfitLoss()
+    readPayoutModes()
   ]);
   const completedInvestments = store.investmentIntents.filter((intent) => intent.status === "COMPLETED");
   const completedWithdrawals = store.withdrawalIntents.filter((intent) => intent.status === "COMPLETED");
@@ -406,7 +405,6 @@ export async function adminDashboardReadModel() {
     roadmapToday,
     roadmapHorizon,
     dividendPrincipalsByMonth,
-    realized,
     totalReturnAccruedKrw: totalReturnAccruals.reduce((sum, accrual) => sum + accrual.amountKrw, 0),
     policy: productPolicyDto()
   };

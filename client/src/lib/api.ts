@@ -196,7 +196,6 @@ export type AdminDashboardResponse = {
   roadmapHorizon: string;
   dividendPrincipalsByMonth: Record<string, DividendAllocationIntentDto[]>;
   totalReturnAccruedKrw: number;
-  realized: RealizedProfitLossDto;
   policy: ProductPolicyDto;
 };
 

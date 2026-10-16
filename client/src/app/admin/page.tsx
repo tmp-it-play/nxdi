@@ -126,7 +126,6 @@ export default async function AdminPage() {
     roadmapToday,
     dividendPrincipalsByMonth,
     totalReturnAccruedKrw,
-    realized,
     policy
   } = dashboard;
   const flashMessages = await getFlashMessages();
@@ -177,13 +176,6 @@ export default async function AdminPage() {
         <Metric label="포트폴리오 평가액" value={formatKrw(portfolio.totalMarketValueKrw)} />
       </Grid>
 
-      <Grid columns={2} className="mt-16">
-        <Metric label="누적 실현 손익" value={formatKrw(realized.realizedProfitLossKrw)} />
-        <Metric label="누적 실현 환차손익" value={formatKrw(realized.realizedFxGainLossKrw)} />
-      </Grid>
-      {realized.unrecordedSaleCount > 0 ? (
-        <MutedText>실현 손익 기록 이전의 매도 {realized.unrecordedSaleCount}건은 집계에서 제외됩니다.</MutedText>
-      ) : null}
 
       <RoadmapEditor
         disclosures={disclosures}
