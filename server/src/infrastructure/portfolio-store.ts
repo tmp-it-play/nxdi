@@ -394,6 +394,29 @@ export async function readMonthEndPortfolioMarketValueKrw(dividendMonth: string)
   });
 }
 
+export type RealizedProfitLossSummary = {
+  realizedProfitLossKrw: number;
+  realizedFxGainLossKrw: number;
+  unrecordedSaleCount: number;
+};
+
+/** Sums realized results booked on sell executions; legacy sells without a booked result are counted separately. */
+export async function readRealizedProfitLoss(symbol?: string): Promise<RealizedProfitLossSummary> {
+  const where = { side: "SELL", ...(symbol ? { symbol: symbol.toUpperCase() } : {}) };
+  const [booked, unrecordedSaleCount] = await Promise.all([
+    prisma.portfolioTradeExecution.aggregate({
+      where: { ...where, realizedProfitLossKrw: { not: null } },
+      _sum: { realizedProfitLossKrw: true, realizedFxGainLossKrw: true }
+    }),
+    prisma.portfolioTradeExecution.count({ where: { ...where, realizedProfitLossKrw: null } })
+  ]);
+  return {
+    realizedProfitLossKrw: booked._sum.realizedProfitLossKrw ?? 0,
+    realizedFxGainLossKrw: booked._sum.realizedFxGainLossKrw ?? 0,
+    unrecordedSaleCount
+  };
+}
+
 export async function readPortfolioMarketValueKrw() {
   const store = await readManualPortfolioStore();
   return store.holdings.reduce((sum, holding) => sum + holding.marketValueKrw, 0);

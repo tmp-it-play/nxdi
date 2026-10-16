@@ -41,7 +41,11 @@ import {
   readPayoutModes,
   readTotalReturnAccruedKrw
 } from "../infrastructure/payouts.js";
-import { getManualPortfolioOverview, readPortfolioMarketValueKrw } from "../infrastructure/portfolio-store.js";
+import {
+  getManualPortfolioOverview,
+  readPortfolioMarketValueKrw,
+  readRealizedProfitLoss
+} from "../infrastructure/portfolio-store.js";
 import {
   kstDateKey,
   readRoadmapEvents,
@@ -183,11 +187,12 @@ export async function stockReadModel(symbol: string) {
   const normalized = symbol.trim().toUpperCase();
   const holding = portfolio.holdings.find((item) => item.symbol.toUpperCase() === normalized);
   if (!holding) return null;
-  const [dividendRecord, dailyChart, weeklyChart, monthlyChart] = await Promise.all([
+  const [dividendRecord, dailyChart, weeklyChart, monthlyChart, realized] = await Promise.all([
     getDividendRecord(holding.symbol),
     fetchMarketCandles(holding.symbol, { range: "1mo", interval: "1d", limit: 2 }).catch(() => null),
     fetchMarketCandles(holding.symbol, { range: "1y", interval: "1wk", limit: 52 }).catch(() => null),
-    fetchMarketCandles(holding.symbol, { range: "5y", interval: "1mo", limit: 60 }).catch(() => null)
+    fetchMarketCandles(holding.symbol, { range: "5y", interval: "1mo", limit: 60 }).catch(() => null),
+    readRealizedProfitLoss(holding.symbol)
   ]);
   const annualDividendKrw = dividendRecord
     ? holding.quantity * (
@@ -205,9 +210,18 @@ export async function stockReadModel(symbol: string) {
     holding,
     dividendRecord: dividendRecord ?? null,
     dailyChangeRate: changeRateFromCandles(dailyChart?.candles ?? []),
+    realized,
     annualDividendKrw,
     holdingDividendYield,
-    returnCandles: holdingReturnCandles(monthlyChart?.candles ?? [], holding, portfolio.exchangeRate),
+    returnCandles: holdingReturnCandles(
+      monthlyChart?.candles ?? [],
+      holding,
+      portfolio.exchangeRate,
+      portfolio.dailySnapshots.map((snapshot) => ({
+        date: snapshot.date,
+        exchangeRate: snapshot.closeExchangeRate ?? snapshot.exchangeRate
+      }))
+    ),
     yieldCandles: holdingDividendYieldCandles(
       monthlyChart?.candles ?? [],
       annualDividendKrw ?? 0,
@@ -322,7 +336,7 @@ export async function intentsReadModel(userId: string) {
 export async function adminDashboardReadModel() {
   const roadmapToday = kstDateKey();
   const roadmapHorizon = roadmapHorizonEndDate(roadmapToday);
-  const [store, portfolio, dividendRecords, monthlyDividendRecords, disclosures, roadmapEvents, payoutRows, payoutModes] = await Promise.all([
+  const [store, portfolio, dividendRecords, monthlyDividendRecords, disclosures, roadmapEvents, payoutRows, payoutModes, realized] = await Promise.all([
     readStore(),
     getManualPortfolioOverview(),
     readDividendRecords(),
@@ -330,7 +344,8 @@ export async function adminDashboardReadModel() {
     readDisclosures(),
     readRoadmapEvents(),
     readMonthlyInvestorPayouts(),
-    readPayoutModes()
+    readPayoutModes(),
+    readRealizedProfitLoss()
   ]);
   const completedInvestments = store.investmentIntents.filter((intent) => intent.status === "COMPLETED");
   const completedWithdrawals = store.withdrawalIntents.filter((intent) => intent.status === "COMPLETED");
@@ -391,6 +406,7 @@ export async function adminDashboardReadModel() {
     roadmapToday,
     roadmapHorizon,
     dividendPrincipalsByMonth,
+    realized,
     totalReturnAccruedKrw: totalReturnAccruals.reduce((sum, accrual) => sum + accrual.amountKrw, 0),
     policy: productPolicyDto()
   };
