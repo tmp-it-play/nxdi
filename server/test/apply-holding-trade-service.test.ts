@@ -102,7 +102,7 @@ describe("ApplyHoldingTradeService", () => {
 
   describe("given an existing USD holding", () => {
     describe("when buying at a different price and exchange rate", () => {
-      it("then updates weighted native cost and weighted KRW exchange cost", async () => {
+      it("then updates weighted native cost and weighted KRW exchange cost including fees and taxes", async () => {
         const fake = serialRepository({
           symbol: "SCHD",
           currency: "USD",
@@ -123,8 +123,9 @@ describe("ApplyHoldingTradeService", () => {
         });
         assert.equal(result.status, "updated");
         assert.equal(fake.state()?.quantity, 20);
-        assert.equal(fake.state()?.averagePurchasePrice, 15);
-        assert.equal(fake.state()?.purchaseExchangeRate, 400_000 / 300);
+        const state = fake.state()!;
+        assert.ok(Math.abs(state.averagePurchasePrice! - 15.02) < 1e-9);
+        assert.ok(Math.abs(state.quantity * state.averagePurchasePrice! * state.purchaseExchangeRate! - 400_600) < 1e-6);
         assert.equal(fake.executions[0]?.side, "BUY");
         assert.equal(fake.executions[0]?.cashAmountKrw, 300_600);
       });
@@ -225,6 +226,44 @@ describe("ApplyHoldingTradeService", () => {
         assert.equal(fake.state()?.quantity, 10);
         assert.equal(fake.updates.length, 0);
         assert.equal(fake.executions.length, 0);
+      });
+    });
+  });
+
+  describe("Given a USD holding bought at 10 dollars and 1,000 won", () => {
+    describe("When part of it is sold at 12 dollars and 1,200 won with a fee", () => {
+      it("Then records the realized profit and the FX share of it on the execution", async () => {
+        const fake = serialRepository({
+          symbol: "SCHD", currency: "USD", quantity: 10, lastPrice: 12,
+          averagePurchasePrice: 10, purchaseExchangeRate: 1000, riskLevel: "LOW"
+        });
+
+        const result = await new ApplyHoldingTradeService(fake.repository, fixedNow).execute({
+          symbol: "SCHD", side: "SELL", quantity: 5, orderPrice: 12, exchangeRate: 1200, feeKrw: 100
+        });
+
+        assert.equal(result.status, "updated");
+        assert.equal(fake.executions[0]?.cashAmountKrw, 71_900);
+        assert.equal(fake.executions[0]?.costBasisKrw, 50_000);
+        assert.equal(fake.executions[0]?.realizedProfitLossKrw, 21_900);
+        assert.equal(fake.executions[0]?.realizedFxGainLossKrw, 12_000);
+      });
+    });
+
+    describe("When the whole position is sold", () => {
+      it("Then keeps the realized result even though the holding is removed", async () => {
+        const fake = serialRepository({
+          symbol: "SCHD", currency: "USD", quantity: 10, lastPrice: 9,
+          averagePurchasePrice: 10, purchaseExchangeRate: 1000, riskLevel: "LOW"
+        });
+
+        const result = await new ApplyHoldingTradeService(fake.repository, fixedNow).execute({
+          symbol: "SCHD", side: "SELL", quantity: 10, orderPrice: 9, exchangeRate: 1100
+        });
+
+        assert.equal(result.status, "deleted");
+        assert.equal(fake.executions[0]?.realizedProfitLossKrw, -1_000);
+        assert.equal(fake.executions[0]?.realizedFxGainLossKrw, 9_000);
       });
     });
   });

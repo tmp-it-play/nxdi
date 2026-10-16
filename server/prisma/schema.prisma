@@ -203,19 +203,22 @@ model MonthlyInvestorPayout {
 }
 
 model PortfolioTradeExecution {
-  id             String   @id @default(cuid())
-  symbol         String   @db.VarChar(20)
-  side           String   @db.VarChar(8)
-  currency       String   @db.VarChar(3)
-  quantity       Float
-  orderPrice     Float    @map("order_price")
-  exchangeRate   Float?   @map("exchange_rate")
-  grossAmountKrw Int      @map("gross_amount_krw")
-  feeKrw         Int      @default(0) @map("fee_krw")
-  taxKrw         Int      @default(0) @map("tax_krw")
-  cashAmountKrw  Int      @map("cash_amount_krw")
-  executedAt     DateTime @map("executed_at")
-  createdAt      DateTime @default(now()) @map("created_at")
+  id                    String   @id @default(cuid())
+  symbol                String   @db.VarChar(20)
+  side                  String   @db.VarChar(8)
+  currency              String   @db.VarChar(3)
+  quantity              Float
+  orderPrice            Float    @map("order_price")
+  exchangeRate          Float?   @map("exchange_rate")
+  grossAmountKrw        Int      @map("gross_amount_krw")
+  feeKrw                Int      @default(0) @map("fee_krw")
+  taxKrw                Int      @default(0) @map("tax_krw")
+  cashAmountKrw         Int      @map("cash_amount_krw")
+  costBasisKrw          Int?     @map("cost_basis_krw")
+  realizedProfitLossKrw Int?     @map("realized_profit_loss_krw")
+  realizedFxGainLossKrw Int?     @map("realized_fx_gain_loss_krw")
+  executedAt            DateTime @map("executed_at")
+  createdAt             DateTime @default(now()) @map("created_at")
 
   @@index([symbol, executedAt], map: "idx_trade_executions_symbol_time")
   @@index([executedAt], map: "idx_trade_executions_time")
