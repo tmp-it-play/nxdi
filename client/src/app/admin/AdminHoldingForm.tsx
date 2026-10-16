@@ -54,6 +54,8 @@ type TradeFormState = {
   quantity: string;
   orderPrice: string;
   exchangeRate: string;
+  feeKrw: string;
+  taxKrw: string;
 };
 
 const adjustmentLabels: Record<HoldingAdjustmentType, string> = {
@@ -82,6 +84,11 @@ function formatHoldingCurrency(value: number | undefined, currency: "KRW" | "USD
 function positiveNumber(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function nonNegativeNumber(value: string) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 function normalizeMarketCode(value?: string, currency?: "KRW" | "USD", symbol?: string): MarketCode {
@@ -169,16 +176,19 @@ function createHoldingFormState({
 }
 
 function createTradeFormState(
-  { lastPrice, purchaseExchangeRate }: Pick<AdminHoldingFormProps, "lastPrice" | "purchaseExchangeRate">,
+  { lastPrice }: Pick<AdminHoldingFormProps, "lastPrice">,
   side: HoldingAdjustmentType = "BUY"
 ): TradeFormState {
   const isGift = side === "GIFT_IN";
 
+  // The execution rate is always entered by hand; prefilling the purchase rate recorded wrong sale rates.
   return {
     side,
     quantity: "",
     orderPrice: isGift ? "" : lastPrice?.toString() ?? "",
-    exchangeRate: isGift ? "" : purchaseExchangeRate?.toString() ?? ""
+    exchangeRate: "",
+    feeKrw: "0",
+    taxKrw: "0"
   };
 }
 
@@ -219,8 +229,8 @@ export function AdminHoldingForm({
   );
   const [form, setForm] = useState<HoldingFormState>(initialForm);
   const initialTradeForm = useMemo(
-    () => createTradeFormState({ lastPrice, purchaseExchangeRate }),
-    [lastPrice, purchaseExchangeRate]
+    () => createTradeFormState({ lastPrice }),
+    [lastPrice]
   );
   const [tradeForm, setTradeForm] = useState<TradeFormState>(initialTradeForm);
   const activeAdjustmentCopy = adjustmentCopy(tradeForm.side, currency ?? "USD");
@@ -263,7 +273,15 @@ export function AdminHoldingForm({
     }
 
     const currentNativeCost = (currentAveragePrice ?? tradePrice) * currentQuantity;
-    const tradeNativeCost = tradePrice * tradeQuantity;
+    // Purchases fold KRW fees and taxes into the acquisition cost, matching the server.
+    const chargesKrw = tradeForm.side === "GIFT_IN"
+      ? 0
+      : (nonNegativeNumber(tradeForm.feeKrw) ?? 0) + (nonNegativeNumber(tradeForm.taxKrw) ?? 0);
+    const krwPerUnit = currency === "USD" ? tradeExchangeRate ?? 0 : 1;
+    const tradeNativePrice = chargesKrw > 0 && krwPerUnit > 0
+      ? tradePrice + chargesKrw / (tradeQuantity * krwPerUnit)
+      : tradePrice;
+    const tradeNativeCost = tradeNativePrice * tradeQuantity;
     const nextQuantity = currentQuantity + tradeQuantity;
     const nextAveragePurchasePrice = (currentNativeCost + tradeNativeCost) / nextQuantity;
     let nextPurchaseExchangeRate = purchaseExchangeRate;
@@ -288,9 +306,11 @@ export function AdminHoldingForm({
     purchaseExchangeRate,
     quantity,
     tradeForm.exchangeRate,
+    tradeForm.feeKrw,
     tradeForm.orderPrice,
     tradeForm.quantity,
-    tradeForm.side
+    tradeForm.side,
+    tradeForm.taxKrw
   ]);
 
   function clearSearchFailure() {
@@ -735,7 +755,7 @@ export function AdminHoldingForm({
                         name="side"
                         type="radio"
                         value={side}
-                        onChange={() => setTradeForm(createTradeFormState({ lastPrice, purchaseExchangeRate }, side))}
+                        onChange={() => setTradeForm(createTradeFormState({ lastPrice }, side))}
                       />
                       <span>{adjustmentLabels[side]}</span>
                     </label>
@@ -790,7 +810,8 @@ export function AdminHoldingForm({
                         id={`trade-fee-${symbol}`}
                         name="feeKrw"
                         min="0"
-                        defaultValue="0"
+                        value={tradeForm.feeKrw}
+                        onValueChange={(value) => setTradeForm((current) => ({ ...current, feeKrw: value }))}
                       />
                     </Field>
                     <Field htmlFor={`trade-tax-${symbol}`} label="거래 세금 (₩)">
@@ -798,7 +819,8 @@ export function AdminHoldingForm({
                         id={`trade-tax-${symbol}`}
                         name="taxKrw"
                         min="0"
-                        defaultValue="0"
+                        value={tradeForm.taxKrw}
+                        onValueChange={(value) => setTradeForm((current) => ({ ...current, taxKrw: value }))}
                       />
                     </Field>
                   </>
