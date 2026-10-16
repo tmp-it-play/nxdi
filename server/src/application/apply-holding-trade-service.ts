@@ -1,3 +1,5 @@
+import { acquisitionNativePrice, realizedSale } from "../domain/holding-cost.js";
+
 export type HoldingTradeState = {
   symbol: string;
   currency: string;
@@ -36,6 +38,9 @@ export type HoldingTradeExecution = {
   feeKrw: number;
   taxKrw: number;
   cashAmountKrw: number;
+  costBasisKrw?: number;
+  realizedProfitLossKrw?: number;
+  realizedFxGainLossKrw?: number;
   executedAt: string;
 };
 
@@ -102,27 +107,47 @@ export class ApplyHoldingTradeService {
       if (input.side === "SELL") {
         const nextQuantity = holding.quantity - input.quantity;
         if (nextQuantity < -MIN_REMAINING_QUANTITY) return { status: "insufficient_quantity" };
+        const sale = realizedSale({
+          currency: holding.currency,
+          quantity: input.quantity,
+          orderPrice: input.orderPrice,
+          exchangeRate: input.exchangeRate,
+          proceedsKrw: execution.cashAmountKrw,
+          averagePurchasePrice: holding.averagePurchasePrice,
+          purchaseExchangeRate: holding.purchaseExchangeRate
+        });
+        const saleExecution = sale ? { ...execution, ...sale } : execution;
         if (nextQuantity <= MIN_REMAINING_QUANTITY) {
           await transaction.delete();
-          await transaction.recordExecution(execution);
+          await transaction.recordExecution(saleExecution);
           return { status: "deleted" };
         }
         const profitLossRate = holding.averagePurchasePrice && holding.averagePurchasePrice > 0
           ? (input.orderPrice - holding.averagePurchasePrice) / holding.averagePurchasePrice
           : null;
         await transaction.update({ quantity: nextQuantity, lastPrice: input.orderPrice, profitLossRate });
-        await transaction.recordExecution(execution);
+        await transaction.recordExecution(saleExecution);
         return { status: "updated" };
       }
+
+      // Gifts carry no charges; purchases fold KRW fees and taxes into the acquisition cost.
+      const tradeNativePrice = isGift ? input.orderPrice : acquisitionNativePrice({
+        currency: holding.currency,
+        quantity: input.quantity,
+        orderPrice: input.orderPrice,
+        exchangeRate: input.exchangeRate,
+        feeKrw,
+        taxKrw
+      });
 
       if (holding.quantity <= MIN_REMAINING_QUANTITY) {
         const nextLastPrice = isGift ? holding.lastPrice : input.orderPrice;
         await transaction.update({
           quantity: input.quantity,
           lastPrice: nextLastPrice,
-          averagePurchasePrice: input.orderPrice,
+          averagePurchasePrice: tradeNativePrice,
           purchaseExchangeRate: holding.currency === "USD" ? input.exchangeRate : null,
-          profitLossRate: (nextLastPrice - input.orderPrice) / input.orderPrice
+          profitLossRate: (nextLastPrice - tradeNativePrice) / tradeNativePrice
         });
         await transaction.recordExecution(execution);
         return { status: "updated" };
@@ -131,7 +156,7 @@ export class ApplyHoldingTradeService {
       if (!holding.averagePurchasePrice || holding.averagePurchasePrice <= 0) return { status: "missing_cost_basis" };
 
       const currentNativeCost = holding.averagePurchasePrice * holding.quantity;
-      const tradeNativeCost = input.orderPrice * input.quantity;
+      const tradeNativeCost = tradeNativePrice * input.quantity;
       const nextQuantity = holding.quantity + input.quantity;
       const nextAveragePurchasePrice = (currentNativeCost + tradeNativeCost) / nextQuantity;
       let nextPurchaseExchangeRate: number | null | undefined = holding.purchaseExchangeRate;

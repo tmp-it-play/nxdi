@@ -4,6 +4,7 @@ import type {
   MonthlyDividendRecord,
   PortfolioDailySnapshot
 } from "./types.js";
+import { candleExchangeRates, type ExchangeRatePoint } from "./holding-cost.js";
 
 export type MarketCandle = {
   date: string;
@@ -349,22 +350,39 @@ function holdingMarketValue(price: number, holding: Holding, exchangeRate: numbe
   return price * holding.quantity * (holding.currency === "USD" ? exchangeRate : 1);
 }
 
-export function holdingReturnCandles(candles: MarketCandle[], holding: Holding, exchangeRate: number) {
+/**
+ * Each candle is valued at the exchange rate of its own period (see `candleExchangeRates`),
+ * so historical returns include the FX gain or loss of that time.
+ */
+export function holdingReturnCandles(
+  candles: MarketCandle[],
+  holding: Holding,
+  exchangeRate: number,
+  exchangeRatePoints: readonly ExchangeRatePoint[] = []
+) {
   if (!holding.averagePurchasePrice || holding.averagePurchasePrice <= 0) return [];
-  const purchaseExchangeRate = holding.purchaseExchangeRate ?? exchangeRate;
+  const isUsd = holding.currency === "USD";
+  if (isUsd && (!holding.purchaseExchangeRate || holding.purchaseExchangeRate <= 0)) return [];
   const costBasis =
     holding.averagePurchasePrice *
     holding.quantity *
-    (holding.currency === "USD" ? purchaseExchangeRate : 1);
+    (isUsd ? holding.purchaseExchangeRate! : 1);
   if (costBasis <= 0) return [];
+  const rates = isUsd
+    ? candleExchangeRates(candles.map((candle) => candle.date), exchangeRatePoints, exchangeRate)
+    : candles.map(() => 1);
 
-  return candles.map((candle) => ({
-    date: candle.date,
-    open: (holdingMarketValue(candle.open, holding, exchangeRate) - costBasis) / costBasis,
-    high: (holdingMarketValue(candle.high, holding, exchangeRate) - costBasis) / costBasis,
-    low: (holdingMarketValue(candle.low, holding, exchangeRate) - costBasis) / costBasis,
-    close: (holdingMarketValue(candle.close, holding, exchangeRate) - costBasis) / costBasis
-  }));
+  return candles.map((candle, index) => {
+    const rate = rates[index]!;
+    const value = (price: number) => (holdingMarketValue(price, holding, rate) - costBasis) / costBasis;
+    return {
+      date: candle.date,
+      open: value(candle.open),
+      high: value(candle.high),
+      low: value(candle.low),
+      close: value(candle.close)
+    };
+  });
 }
 
 export function holdingDividendYieldCandles(

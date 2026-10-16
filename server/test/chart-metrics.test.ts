@@ -529,6 +529,20 @@ describe("Given a holding and market candles, when holding-return candles are bu
   });
 });
 
+describe("Given a USD holding without a purchase exchange rate", () => {
+  describe("When holding-return candles are built", () => {
+    it("Then no candles are returned instead of hiding the FX result", () => {
+      const candles = holdingReturnCandles(
+        [{ date: "2026-01-02T00:00:00.000Z", open: 10, high: 12, low: 9, close: 11 }],
+        holding({ currency: "USD", marketCountry: "NASDAQ", quantity: 2, averagePurchasePrice: 10 }),
+        1300
+      );
+
+      assert.deepEqual(candles, []);
+    });
+  });
+});
+
 describe("Given a holding and market candles, when holding dividend-yield candles are built", () => {
   it("then uses current exchange rate adjusted holding market value as denominator", () => {
     const candles = holdingDividendYieldCandles(

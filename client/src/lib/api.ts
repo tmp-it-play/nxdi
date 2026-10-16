@@ -101,11 +101,18 @@ export type DisclosureResponse = {
   disclosure: Disclosure;
 };
 
+export type RealizedProfitLossDto = {
+  realizedProfitLossKrw: number;
+  realizedFxGainLossKrw: number;
+  unrecordedSaleCount: number;
+};
+
 export type StockResponse = {
   user: AppUser | null;
   holding: PortfolioOverview["holdings"][number];
   dividendRecord: DividendRecord | null;
   dailyChangeRate?: number;
+  realized: RealizedProfitLossDto;
   annualDividendKrw?: number;
   holdingDividendYield?: number;
   returnCandles: MarketCandle[];
@@ -189,6 +196,7 @@ export type AdminDashboardResponse = {
   roadmapHorizon: string;
   dividendPrincipalsByMonth: Record<string, DividendAllocationIntentDto[]>;
   totalReturnAccruedKrw: number;
+  realized: RealizedProfitLossDto;
   policy: ProductPolicyDto;
 };
 

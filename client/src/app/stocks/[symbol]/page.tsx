@@ -14,7 +14,7 @@ import {
   TextLink,
   Top
 } from "@/app/components/tds";
-import { getStock } from "@/lib/api";
+import { getStock, type RealizedProfitLossDto } from "@/lib/api";
 import { formatCurrency, formatKrw, formatNumber } from "@/lib/format";
 import { stockFullLabel, stockPrimaryLabel, stockSecondaryLabel } from "@/lib/stock-display";
 import type { DividendRecord, Holding } from "@/lib/types";
@@ -24,6 +24,11 @@ type StockDetailProps = {
     symbol: string;
   }>;
 };
+
+function realizedValue(realized: RealizedProfitLossDto, amountKrw: number) {
+  const unrecorded = realized.unrecordedSaleCount > 0 ? ` (이전 매도 ${realized.unrecordedSaleCount}건 미집계)` : "";
+  return `${formatKrw(amountKrw)}${unrecorded}`;
+}
 
 function formatPercent(value?: number) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "-";
@@ -75,6 +80,7 @@ export default async function StockDetailPage({ params }: StockDetailProps) {
     holding,
     dividendRecord,
     dailyChangeRate,
+    realized,
     annualDividendKrw,
     holdingDividendYield,
     returnCandles,
@@ -179,6 +185,16 @@ export default async function StockDetailPage({ params }: StockDetailProps) {
               value={holding.fxGainLossKrw !== undefined ? formatKrw(holding.fxGainLossKrw) : "-"}
             />
           </>
+        ) : null}
+        <ListRow
+          title="실현 손익"
+          value={realizedValue(realized, realized.realizedProfitLossKrw)}
+        />
+        {holding.currency === "USD" ? (
+          <ListRow
+            title="실현 환차손익"
+            value={realizedValue(realized, realized.realizedFxGainLossKrw)}
+          />
         ) : null}
         <ListRow
           title="평균 매수가"
