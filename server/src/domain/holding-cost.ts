@@ -45,13 +45,14 @@ export function realizedSale(input: {
   const isUsd = input.currency === "USD";
   if (isUsd && (!input.purchaseExchangeRate || input.purchaseExchangeRate <= 0 || !input.exchangeRate)) return null;
   const purchaseRate = isUsd ? input.purchaseExchangeRate! : 1;
-  const costBasisKrw = input.quantity * input.averagePurchasePrice * purchaseRate;
+  // Profit is derived from the stored, rounded cost so that cost + profit always equals the proceeds.
+  const costBasisKrw = Math.round(input.quantity * input.averagePurchasePrice * purchaseRate);
   const realizedFxGainLossKrw = isUsd
     ? input.quantity * input.orderPrice * (input.exchangeRate! - purchaseRate)
     : 0;
   return {
-    costBasisKrw: Math.round(costBasisKrw),
-    realizedProfitLossKrw: Math.round(input.proceedsKrw - costBasisKrw),
+    costBasisKrw,
+    realizedProfitLossKrw: Math.round(input.proceedsKrw) - costBasisKrw,
     realizedFxGainLossKrw: Math.round(realizedFxGainLossKrw)
   };
 }
@@ -59,8 +60,9 @@ export function realizedSale(input: {
 export type ExchangeRatePoint = { date: string; exchangeRate: number };
 
 /**
- * Rate in effect for each candle: the last known rate before the next candle starts,
- * falling back to the earliest known rate, and `currentRate` for the latest candle.
+ * Rate in effect for each monthly candle: the last known rate within or before the candle's
+ * calendar month (so gaps in candles never borrow a later month's rate), falling back to the
+ * earliest known rate, and `currentRate` for the latest candle.
  */
 export function candleExchangeRates(
   candleDates: readonly string[],
@@ -70,12 +72,12 @@ export function candleExchangeRates(
   const sorted = points
     .filter((point) => Number.isFinite(point.exchangeRate) && point.exchangeRate > 0)
     .sort((left, right) => left.date.localeCompare(right.date));
-  return candleDates.map((_, index) => {
-    const nextDate = candleDates[index + 1]?.slice(0, 10);
-    if (nextDate === undefined) return currentRate;
+  return candleDates.map((date, index) => {
+    if (index === candleDates.length - 1) return currentRate;
+    const candleMonth = date.slice(0, 7);
     let rate: number | undefined;
     for (const point of sorted) {
-      if (point.date.slice(0, 10) >= nextDate) break;
+      if (point.date.slice(0, 7) > candleMonth) break;
       rate = point.exchangeRate;
     }
     return rate ?? sorted[0]?.exchangeRate ?? currentRate;

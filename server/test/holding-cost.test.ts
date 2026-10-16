@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { acquisitionNativePrice, candleExchangeRates } from "../src/domain/holding-cost.js";
+import { acquisitionNativePrice, candleExchangeRates, realizedSale } from "../src/domain/holding-cost.js";
 
 describe("Given a USD purchase with KRW fees and taxes", () => {
   describe("When the acquisition price is calculated", () => {
@@ -45,8 +45,26 @@ describe("Given monthly candles and daily exchange-rate snapshots", () => {
     });
 
     it("Then a month before any snapshot falls back to the earliest known rate", () => {
+      const rates = candleExchangeRates(["2026-06-01", "2026-08-01", "2026-10-01"], points, 1342);
+      assert.deepEqual(rates, [1450, 1380, 1342]);
+    });
+
+    it("Then a gap in candles does not borrow a later month's rate", () => {
       const rates = candleExchangeRates(["2026-06-01", "2026-07-01", "2026-10-01"], points, 1342);
-      assert.deepEqual(rates, [1450, 1360, 1342]);
+      assert.deepEqual(rates, [1450, 1450, 1342]);
+    });
+  });
+});
+
+describe("Given one share bought and sold at the same price and rate", () => {
+  describe("When the realized result is calculated with a half-won cost", () => {
+    it("Then the stored cost and profit add up to the proceeds", () => {
+      const sale = realizedSale({
+        currency: "USD", quantity: 1, orderPrice: 10.5, exchangeRate: 1001, proceedsKrw: 10_511,
+        averagePurchasePrice: 10.5, purchaseExchangeRate: 1001
+      })!;
+      assert.equal(sale.costBasisKrw + sale.realizedProfitLossKrw, 10_511);
+      assert.equal(sale.realizedProfitLossKrw, 0);
     });
   });
 });
