@@ -391,6 +391,7 @@ export async function adminDashboardReadModel() {
     roadmapToday,
     roadmapHorizon,
     dividendPrincipalsByMonth,
+    totalReturnAccruedKrw: totalReturnAccruals.reduce((sum, accrual) => sum + accrual.amountKrw, 0),
     policy: productPolicyDto()
   };
 }

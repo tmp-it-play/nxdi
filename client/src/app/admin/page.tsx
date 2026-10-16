@@ -125,6 +125,7 @@ export default async function AdminPage() {
     roadmapEvents,
     roadmapToday,
     dividendPrincipalsByMonth,
+    totalReturnAccruedKrw,
     policy
   } = dashboard;
   const flashMessages = await getFlashMessages();
@@ -135,6 +136,19 @@ export default async function AdminPage() {
   const completedWithdrawal = store.withdrawalIntents
     .filter((intent) => intent.status === "COMPLETED")
     .reduce((sum, intent) => sum + intent.amountKrw, 0);
+  // Withdrawals reach an investor's total-return accruals only after their investment principal.
+  const netPrincipalByUser = new Map<string, number>();
+  for (const intent of store.investmentIntents) {
+    if (intent.status !== "COMPLETED") continue;
+    netPrincipalByUser.set(intent.userId, (netPrincipalByUser.get(intent.userId) ?? 0) + intent.amountKrw);
+  }
+  for (const intent of store.withdrawalIntents) {
+    if (intent.status !== "COMPLETED") continue;
+    netPrincipalByUser.set(intent.userId, (netPrincipalByUser.get(intent.userId) ?? 0) - intent.amountKrw);
+  }
+  const externalNetPrincipal = [...netPrincipalByUser.values()]
+    .reduce((sum, amount) => sum + Math.max(amount, 0), 0);
+  const externalTotalCapital = Math.max(completedInvestment + totalReturnAccruedKrw - completedWithdrawal, 0);
   const dividendRecordsBySymbol = new Map(
     dividendRecords.map((record) => [record.symbol.toUpperCase(), record])
   );
@@ -156,8 +170,8 @@ export default async function AdminPage() {
       />
 
       <Grid columns={4} className="mt-16">
-        <Metric label="완료 투자 의향" value={formatKrw(completedInvestment)} />
-        <Metric label="완료 출금 의향" value={formatKrw(completedWithdrawal)} />
+        <Metric label="외부 출자 총액 (TR 포함)" value={formatKrw(externalTotalCapital)} />
+        <Metric label="외부 순투자 원금 (TR 제외)" value={formatKrw(externalNetPrincipal)} />
         <Metric label="실배당 기록" value={`${monthlyDividendRecords.length}개월`} />
         <Metric label="포트폴리오 평가액" value={formatKrw(portfolio.totalMarketValueKrw)} />
       </Grid>
