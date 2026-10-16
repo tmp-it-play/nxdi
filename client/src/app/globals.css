@@ -4627,19 +4627,6 @@ button.roadmap-pin-more:hover {
   margin-bottom: 4px;
 }
 
-.roadmap-editor-window {
-  align-items: center;
-  background: var(--accent-soft);
-  border-radius: 999px;
-  color: var(--accent-dark);
-  display: flex;
-  flex: 0 0 auto;
-  font-size: var(--tds-text-xs);
-  font-weight: 800;
-  gap: 6px;
-  padding: 8px var(--tds-space-3);
-}
-
 .roadmap-editor-layout {
   display: grid;
   gap: var(--tds-space-4);
@@ -5180,10 +5167,6 @@ button.ghost.danger {
 
   .roadmap-navigation {
     justify-content: flex-end;
-  }
-
-  .roadmap-editor-window {
-    align-self: flex-start;
   }
 
   .roadmap-disclosure-list {

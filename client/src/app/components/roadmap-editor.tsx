@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  CalendarDays,
   Check,
   GripVertical,
   History,
+  LocateFixed,
   MapPinned,
   Plus,
   Save,
@@ -739,10 +739,6 @@ export function RoadmapEditor({ events, disclosures, today }: RoadmapEditorProps
         <div>
           <h2 id={`${editorId}-title`}>로드맵 편집</h2>
         </div>
-        <div className="roadmap-editor-window" aria-label="편집 가능한 날짜">
-          <CalendarDays size={17} aria-hidden="true" />
-          <span>날짜 제한 없음</span>
-        </div>
       </header>
 
       <div className="roadmap-editor-layout">
@@ -835,6 +831,10 @@ export function RoadmapEditor({ events, disclosures, today }: RoadmapEditorProps
                 <span className="roadmap-editor-eyebrow">2. 날짜에 놓기</span>
                 <h3 id={`${editorId}-timeline-title`}>전체 로드맵</h3>
               </div>
+              <button className="roadmap-today-button" type="button" onClick={() => centerDateInTimeline(today)}>
+                <LocateFixed size={16} aria-hidden="true" />
+                <span>오늘</span>
+              </button>
             </header>
 
             <div
