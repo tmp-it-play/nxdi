@@ -11,6 +11,7 @@ import type {
   DividendRecord,
   MarketCandle,
   MonthlyDividendRecord,
+  PayoutMode,
   PortfolioDividendSummary,
   PortfolioOverview,
   WithdrawalIntentReference
@@ -153,6 +154,8 @@ export type DividendAllocationIntentDto = {
   createdAt: string;
   updatedAt: string;
   eligibleFromMonth: string;
+  source: "INVESTMENT_INTENT" | "TOTAL_RETURN_ACCRUAL";
+  payoutMode: PayoutMode;
 };
 
 export type SimulationResponse = {
@@ -167,6 +170,8 @@ export type SimulationResponse = {
 export type IntentsResponse = {
   user: AppUser;
   store: AppStore;
+  payoutMode: PayoutMode | null;
+  totalReturnAccruedKrw: number;
   withdrawalReference: WithdrawalIntentReference;
   investmentAvailability: InvestmentIntentAvailabilityDto;
   policy: ProductPolicyDto;

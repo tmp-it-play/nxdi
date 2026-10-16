@@ -178,6 +178,30 @@ model WithdrawalIntent {
   @@map("tb_withdrawal_intents")
 }
 
+model InvestorPayoutPreference {
+  userId     String   @id @map("user_id") @db.VarChar(191)
+  payoutMode String   @map("payout_mode") @db.VarChar(20)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("tb_investor_payout_preferences")
+}
+
+model MonthlyInvestorPayout {
+  dividendMonth         String   @map("dividend_month") @db.VarChar(7)
+  userId                String   @map("user_id") @db.VarChar(191)
+  payoutMode            String   @map("payout_mode") @db.VarChar(20)
+  eligiblePrincipalKrw  Int      @map("eligible_principal_krw")
+  cashPayoutKrw         Int      @map("cash_payout_krw")
+  totalReturnAccrualKrw Int      @map("total_return_accrual_krw")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@id([dividendMonth, userId])
+  @@index([userId], map: "idx_monthly_investor_payouts_user_id")
+  @@map("tb_monthly_investor_payouts")
+}
+
 model PortfolioTradeExecution {
   id             String   @id @default(cuid())
   symbol         String   @db.VarChar(20)

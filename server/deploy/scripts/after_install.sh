@@ -26,3 +26,7 @@ docker compose -f "$COMPOSE_FILE" build --pull
 # Existing installations must complete the documented, verified one-time baseline.
 # migrate deploy refuses unbaselined non-empty databases; never use db push here.
 docker compose -f "$COMPOSE_FILE" run --rm --no-deps server npm run db:migrate
+
+# One-off: existing investors default to total return. Idempotent (skips investors that already have a preference).
+# Remove this line together with scripts/backfill-total-return-payout-mode.ts.
+docker compose -f "$COMPOSE_FILE" run --rm --no-deps server npm run db:backfill-total-return -- --apply

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Field, MutedText, TdsSelect } from "@/app/components/tds";
 import { calculateDividendAllocation } from "@/lib/dividend-allocation";
 import { formatDateTime, formatKrw, formatNumber } from "@/lib/format";
+import type { PayoutMode } from "@/lib/types";
 
 type DividendAllocationIntent = {
   id: string;
@@ -14,6 +15,8 @@ type DividendAllocationIntent = {
   createdAt: string;
   updatedAt: string;
   eligibleFromMonth: string;
+  source: "INVESTMENT_INTENT" | "TOTAL_RETURN_ACCRUAL";
+  payoutMode: PayoutMode;
 };
 
 type MonthlyDividendRecord = {
@@ -30,6 +33,11 @@ type DividendAllocationCalculatorProps = {
   defaultDividendMonth: string;
   monthlyInvestorDividendCapRate: number;
   totalMarketValueKrw: number;
+};
+
+const PAYOUT_MODE_LABELS: Record<PayoutMode, string> = {
+  TOTAL_RETURN: "토탈 리턴",
+  MONTHLY_CASH: "월 현금 지급"
 };
 
 function formatPercent(value: number) {
@@ -74,6 +82,7 @@ export function DividendAllocationCalculator({
     managementFeeRate,
     monthlyInvestorDividendCapRate
   });
+  const isTotalReturn = selectedIntent?.payoutMode === "TOTAL_RETURN";
   const canCalculate =
     investorPrincipalKrw > 0 &&
     Boolean(selectedIntent) &&
@@ -94,7 +103,7 @@ export function DividendAllocationCalculator({
             type="month"
             value={dividendMonth}
           />
-          <p className="field-help">완료된 투자 의향은 다음 달부터 포함하고, 완료된 출금 의향은 투자자별 FIFO로 차감합니다.</p>
+          <p className="field-help">완료된 투자 의향과 토탈 리턴 편입액은 다음 달부터 포함하고, 완료된 출금 의향은 투자자별 FIFO로 차감합니다.</p>
         </Field>
         <Field htmlFor="dividend-allocation-intent" label="완료된 투자 의향서">
           <TdsSelect
@@ -106,7 +115,11 @@ export function DividendAllocationCalculator({
             {eligibleIntents.length === 0 ? <option value="">배당 대상 의향서 없음</option> : null}
             {eligibleIntents.map((intent) => (
               <option key={intent.id} value={intent.id}>
-                {intent.userName} · {formatKrw(intent.amountKrw)} · {formatDateTime(intent.createdAt)}
+                {intent.userName} · {formatKrw(intent.amountKrw)} ·{" "}
+                {intent.source === "TOTAL_RETURN_ACCRUAL"
+                  ? `TR 누적 편입 (${intent.eligibleFromMonth}부터)`
+                  : formatDateTime(intent.createdAt)}{" "}
+                · {PAYOUT_MODE_LABELS[intent.payoutMode]}
               </option>
             ))}
           </TdsSelect>
@@ -157,14 +170,23 @@ export function DividendAllocationCalculator({
           <span>선택 투자자 비율</span>
           <strong>{formatPercent(allocation.selectedInvestorWeight)}</strong>
         </div>
-        <div>
-          <span>지급액</span>
-          <strong>{formatKrw(allocation.allocationKrw)}</strong>
-        </div>
-        <div>
-          <span>선택 의향 재투자액</span>
-          <strong>{formatKrw(allocation.selectedInvestorReinvestmentKrw)}</strong>
-        </div>
+        {isTotalReturn ? (
+          <div>
+            <span>원금 편입액 (토탈 리턴)</span>
+            <strong>{formatKrw(allocation.allocationKrw + allocation.selectedInvestorReinvestmentKrw)}</strong>
+          </div>
+        ) : (
+          <>
+            <div>
+              <span>지급액</span>
+              <strong>{formatKrw(allocation.allocationKrw)}</strong>
+            </div>
+            <div>
+              <span>선택 의향 재투자액</span>
+              <strong>{formatKrw(allocation.selectedInvestorReinvestmentKrw)}</strong>
+            </div>
+          </>
+        )}
       </div>
 
       {!canCalculate ? (
@@ -179,6 +201,11 @@ export function DividendAllocationCalculator({
           <div>
             <span>완료 기준일</span>
             <strong>{formatDateTime(selectedIntent.updatedAt)}</strong>
+          </div>
+          <div>
+            <span>수령 방식</span>
+            <strong>{PAYOUT_MODE_LABELS[selectedIntent.payoutMode]}</strong>
+            {isTotalReturn ? <MutedText>현금 지급 없이 다음 달부터 계산 잔액에 편입됩니다.</MutedText> : null}
           </div>
           <div>
             <span>계산식</span>

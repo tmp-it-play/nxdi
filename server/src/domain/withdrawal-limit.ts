@@ -37,9 +37,12 @@ export function withdrawalIntentReferenceFromAmounts(
   };
 }
 
-export function withdrawalIntentReferenceForUser(store: AppStore, userId: string) {
+/** Total-return accruals are withdrawable like completed investment principal. */
+export function withdrawalIntentReferenceForUser(store: AppStore, userId: string, totalReturnAccruedKrw = 0) {
   const completedNet = Math.max(
-    completedInvestmentIntentAmount(store, userId) - completedWithdrawalIntentAmount(store, userId),
+    completedInvestmentIntentAmount(store, userId) +
+      Math.max(totalReturnAccruedKrw, 0) -
+      completedWithdrawalIntentAmount(store, userId),
     0
   );
   return withdrawalIntentReferenceFromAmounts(

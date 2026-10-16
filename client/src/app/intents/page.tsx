@@ -24,7 +24,13 @@ import {
 import { getMyIntents } from "@/lib/api";
 import { formatDateTime, formatKrw, formatNumber, statusLabel } from "@/lib/format";
 import { FLASH_COOKIE_NAME, getFlashMessages } from "@/lib/flash";
+import type { PayoutMode } from "@/lib/types";
 import { TermsAgreement } from "./TermsAgreement";
+
+const PAYOUT_MODE_LABELS: Record<PayoutMode, string> = {
+  TOTAL_RETURN: "토탈 리턴",
+  MONTHLY_CASH: "월 현금 지급"
+};
 
 function statusClass(status: string): "accepted" | "rejected" | "pending" {
   if (status === "COMPLETED") return "accepted";
@@ -77,7 +83,7 @@ function IntentGate({ messages }: { messages: ToastMessage[] }) {
 export default async function IntentsPage() {
   const [data, flashMessages] = await Promise.all([getMyIntents(), getFlashMessages()]);
   if (!data) return <IntentGate messages={flashMessages} />;
-  const { user, store, withdrawalReference, investmentAvailability, policy } = data;
+  const { user, store, payoutMode, totalReturnAccruedKrw, withdrawalReference, investmentAvailability, policy } = data;
 
   const [termsMarkdown, dividendPolicyMarkdown] = await Promise.all([
     readProductDescription(),
@@ -134,6 +140,30 @@ export default async function IntentsPage() {
             <Field htmlFor="investContact" label="전화번호 또는 이메일">
               <input id="investContact" name="contact" placeholder="010-0000-0000 또는 name@example.com" required />
             </Field>
+            {payoutMode ? (
+              <Field htmlFor="investPayoutMode" label="배당 수령 방식">
+                <input id="investPayoutMode" readOnly value={PAYOUT_MODE_LABELS[payoutMode]} />
+                <p className="field-help">수령 방식은 계정별로 적용되며, 변경은 관리자에게 문의해 주세요.</p>
+              </Field>
+            ) : (
+              <fieldset className="payout-mode-options">
+                <legend>배당 수령 방식</legend>
+                <label>
+                  <input name="payoutMode" required type="radio" value="TOTAL_RETURN" />
+                  <span>
+                    <strong>{PAYOUT_MODE_LABELS.TOTAL_RETURN}</strong>
+                    <small>배분액을 현금으로 받지 않고 다음 달부터 배당 적격 잔액에 편입합니다.</small>
+                  </span>
+                </label>
+                <label>
+                  <input name="payoutMode" required type="radio" value="MONTHLY_CASH" />
+                  <span>
+                    <strong>{PAYOUT_MODE_LABELS.MONTHLY_CASH}</strong>
+                    <small>매월 현금 지급 상한 범위의 배분액을 지급받습니다.</small>
+                  </span>
+                </label>
+              </fieldset>
+            )}
             <TermsAgreement markdown={termsMarkdown} />
             <TermsAgreement
               markdown={dividendPolicyMarkdown}
@@ -166,6 +196,7 @@ export default async function IntentsPage() {
           </h2>
           <p className="lede">
             완료된 투자 의향 잔액 범위에서 출금 의향을 제출할 수 있습니다.
+            {totalReturnAccruedKrw > 0 ? ` 토탈 리턴 누적 편입액 ${formatKrw(totalReturnAccruedKrw)}이 포함됩니다.` : null}
           </p>
           <ApiMutationForm action="/api/intents/withdraw" className="form" method="post" resetOnSuccess>
             <Field htmlFor="withdrawAmount" label="출금 의향 금액 (원화)">

@@ -6,8 +6,8 @@ import type { MonthlyPayoutRecipient } from "../src/domain/notifications/index.j
 
 function payout(overrides: Partial<MonthlyPayoutRecipient> = {}): MonthlyPayoutRecipient {
   return {
-    userId: "investor-1", userName: "투자자 1", investmentKrw: 100_000,
-    allocationKrw: 1_425, displayedKrw: 1_425, managementFeeKrw: 75, reinvestmentKrw: 0,
+    userId: "investor-1", userName: "투자자 1", investmentKrw: 100_000, payoutMode: "MONTHLY_CASH",
+    allocationKrw: 1_425, displayedKrw: 1_425, managementFeeKrw: 75, reinvestmentKrw: 0, totalReturnAccrualKrw: 0,
     ...overrides
   };
 }
@@ -56,7 +56,7 @@ describe("Given monthly payout eligibility has changed since earlier mail", () =
   describe("When a previously notified investor is absent from the recalculation", () => {
     it("Then the investor receives an explicit zero correction for principal, payout, fee, and reinvestment", () => {
       assert.deepEqual(monthlyCorrectionRecipients([{ userId: "investor-1", userName: "투자자 1" }], []), [
-        { userId: "investor-1", userName: "투자자 1", investmentKrw: 0, allocationKrw: 0, displayedKrw: 0, managementFeeKrw: 0, reinvestmentKrw: 0 }
+        { userId: "investor-1", userName: "투자자 1", payoutMode: "MONTHLY_CASH", investmentKrw: 0, allocationKrw: 0, displayedKrw: 0, managementFeeKrw: 0, reinvestmentKrw: 0, totalReturnAccrualKrw: 0 }
       ]);
     });
   });

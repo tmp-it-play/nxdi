@@ -11,6 +11,7 @@ import { monthlyDividendRecordId } from "../domain/monthly-dividend-record.js";
 import { portfolioCostBasisKrw } from "../domain/portfolio-math.js";
 import { mapWithConcurrency } from "./concurrency.js";
 import { fetchDividendRecordFromMarket } from "./market-data.js";
+import { rebuildMonthlyInvestorPayoutsFrom } from "./payouts.js";
 import { withMysqlNamedLock } from "./mysql-named-lock.js";
 import { prisma } from "./prisma.js";
 
@@ -281,6 +282,7 @@ export async function upsertMonthlyDividendRecord(record: {
       referenceMarketValueKrw
     }
   });
+  await rebuildMonthlyInvestorPayoutsFrom(dividendMonth);
   wakeNotifications();
 }
 
@@ -290,6 +292,7 @@ export async function deleteMonthlyDividendRecord(dividendMonth: string) {
   await prisma.monthlyDividendRecord.deleteMany({
     where: { dividendMonth: normalizedMonth }
   });
+  await rebuildMonthlyInvestorPayoutsFrom(normalizedMonth);
 }
 
 export async function getDividendRecord(symbol: string) {

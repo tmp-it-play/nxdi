@@ -160,6 +160,8 @@ export type PortfolioDividendSummary = {
   totalReturnRate?: number;
 };
 
+export type PayoutMode = "MONTHLY_CASH" | "TOTAL_RETURN";
+
 export type WithdrawalIntentReference = {
   completedNetInvestmentIntentKrw: number;
   pendingWithdrawalIntentKrw: number;

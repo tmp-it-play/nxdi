@@ -1,4 +1,3 @@
-import { CalculateDividendPrincipalService } from "./calculate-dividend-principal-service.js";
 import { calculateExpectedInvestorDividend } from "../domain/dividend-allocation.js";
 import {
   candlesFromSnapshots,
@@ -15,6 +14,12 @@ import {
 import { dividendEligibleFromMonth } from "../domain/dividend-eligibility.js";
 import { investmentIntentAvailabilityFromAmounts } from "../domain/investment-intent-availability.js";
 import {
+  eligiblePayoutPrincipals,
+  isTotalReturnPrincipalEntryId,
+  totalReturnAccrualsFromRows
+} from "../domain/monthly-investor-payouts.js";
+import { DEFAULT_PAYOUT_MODE } from "../domain/payout-mode.js";
+import {
   PRODUCT_MAX_INVESTMENT_KRW,
   PRODUCT_MIN_INVESTMENT_KRW,
   productPolicyDto
@@ -30,6 +35,12 @@ import {
 } from "../infrastructure/dividends.js";
 import { mapWithConcurrency } from "../infrastructure/concurrency.js";
 import { fetchMarketCandles, type MarketChart } from "../infrastructure/market-data.js";
+import {
+  readMonthlyInvestorPayouts,
+  readPayoutMode,
+  readPayoutModes,
+  readTotalReturnAccruedKrw
+} from "../infrastructure/payouts.js";
 import { getManualPortfolioOverview, readPortfolioMarketValueKrw } from "../infrastructure/portfolio-store.js";
 import {
   kstDateKey,
@@ -288,14 +299,18 @@ export async function simulationReadModel(requestedAmount: number) {
 }
 
 export async function intentsReadModel(userId: string) {
-  const [store, completedInvestmentIntentKrw, portfolioMarketValueKrw] = await Promise.all([
+  const [store, completedInvestmentIntentKrw, portfolioMarketValueKrw, payoutMode, totalReturnAccruedKrw] = await Promise.all([
     readStoreForUser(userId),
     readCompletedInvestmentIntentAmount(),
-    readPortfolioMarketValueKrw()
+    readPortfolioMarketValueKrw(),
+    readPayoutMode(userId),
+    readTotalReturnAccruedKrw(userId)
   ]);
   return {
     store,
-    withdrawalReference: withdrawalIntentReferenceForUser(store, userId),
+    payoutMode,
+    totalReturnAccruedKrw,
+    withdrawalReference: withdrawalIntentReferenceForUser(store, userId, totalReturnAccruedKrw),
     investmentAvailability: investmentIntentAvailabilityFromAmounts(
       completedInvestmentIntentKrw,
       portfolioMarketValueKrw
@@ -307,21 +322,25 @@ export async function intentsReadModel(userId: string) {
 export async function adminDashboardReadModel() {
   const roadmapToday = kstDateKey();
   const roadmapHorizon = roadmapHorizonEndDate(roadmapToday);
-  const [store, portfolio, dividendRecords, monthlyDividendRecords, disclosures, roadmapEvents] = await Promise.all([
+  const [store, portfolio, dividendRecords, monthlyDividendRecords, disclosures, roadmapEvents, payoutRows, payoutModes] = await Promise.all([
     readStore(),
     getManualPortfolioOverview(),
     readDividendRecords(),
     readMonthlyDividendRecords(),
     readDisclosures(),
-    readRoadmapEvents()
+    readRoadmapEvents(),
+    readMonthlyInvestorPayouts(),
+    readPayoutModes()
   ]);
   const completedInvestments = store.investmentIntents.filter((intent) => intent.status === "COMPLETED");
   const completedWithdrawals = store.withdrawalIntents.filter((intent) => intent.status === "COMPLETED");
   const investmentById = new Map(completedInvestments.map((intent) => [intent.id, intent]));
-  const principalService = new CalculateDividendPrincipalService();
+  const investorByUserId = new Map(completedInvestments.map((intent) => [intent.userId, intent]));
+  const totalReturnAccruals = totalReturnAccrualsFromRows(payoutRows);
+  const bookedModes = new Map(payoutRows.map((row) => [`${row.dividendMonth}:${row.userId}`, row.payoutMode]));
   const dividendPrincipalsByMonth = Object.fromEntries(
     monthlyDividendRecords.map((record) => {
-      const principals = principalService.execute({
+      const principals = eligiblePayoutPrincipals({
         dividendMonth: record.dividendMonth,
         investments: completedInvestments.map((intent) => ({
           id: intent.id,
@@ -334,23 +353,29 @@ export async function adminDashboardReadModel() {
           userId: intent.userId,
           amountKrw: intent.amountKrw,
           completedAt: intent.updatedAt
-        }))
+        })),
+        totalReturnAccruals
       }).map((principal) => {
-        const intent = investmentById.get(principal.id);
-        if (!intent) throw new Error(`Completed investment intent ${principal.id} was not found`);
+        const isTotalReturnAccrual = isTotalReturnPrincipalEntryId(principal.id);
+        const intent = isTotalReturnAccrual ? investorByUserId.get(principal.userId) : investmentById.get(principal.id);
+        if (!intent && !isTotalReturnAccrual) throw new Error(`Completed investment intent ${principal.id} was not found`);
         const eligibleFromMonth = dividendEligibleFromMonth(principal.completedAt);
         if (!eligibleFromMonth) {
           throw new Error(`Completed investment intent ${principal.id} has an invalid updatedAt timestamp`);
         }
         return {
-          id: intent.id,
-          userId: intent.userId,
-          userName: intent.userName,
-          userEmail: intent.userEmail,
+          id: principal.id,
+          userId: principal.userId,
+          userName: intent?.userName ?? "투자자",
+          userEmail: intent?.userEmail ?? "",
           amountKrw: principal.amountKrw,
-          createdAt: intent.createdAt,
+          createdAt: isTotalReturnAccrual ? principal.completedAt : intent!.createdAt,
           updatedAt: principal.completedAt,
-          eligibleFromMonth
+          eligibleFromMonth,
+          source: isTotalReturnAccrual ? "TOTAL_RETURN_ACCRUAL" as const : "INVESTMENT_INTENT" as const,
+          payoutMode: bookedModes.get(`${record.dividendMonth}:${principal.userId}`) ??
+            payoutModes.get(principal.userId) ??
+            DEFAULT_PAYOUT_MODE
         };
       });
       return [record.dividendMonth, principals];

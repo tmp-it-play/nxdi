@@ -1,5 +1,9 @@
-import { CalculateDividendPrincipalService } from "../../application/calculate-dividend-principal-service.js";
-import { calculateDividendAllocation } from "../dividend-allocation.js";
+import {
+  calculateInvestorPayouts,
+  type InvestorPayout,
+  type TotalReturnAccrual
+} from "../monthly-investor-payouts.js";
+import { DEFAULT_PAYOUT_MODE, type PayoutMode } from "../payout-mode.js";
 import type { InvestmentIntent } from "../types.js";
 
 export type NotificationType = "DISCLOSURE" | "MONTHLY_PAYOUT" | "QUARTERLY_HOLDINGS";
@@ -106,25 +110,26 @@ export function activeInvestorRecipients(store: NotificationStore): InvestorReci
 }
 
 export type MonthlyPayoutRecipient = InvestorRecipient & {
+  payoutMode: PayoutMode;
   allocationKrw: number;
   displayedKrw: number;
   managementFeeKrw: number;
   reinvestmentKrw: number;
+  totalReturnAccrualKrw: number;
 };
 
-export function recipientPayout(
-  recipient: InvestorRecipient,
-  allocation: ReturnType<typeof calculateDividendAllocation>
-): MonthlyPayoutRecipient {
-  if (![allocation.allocationKrw, allocation.selectedManagementFeeKrw, allocation.selectedInvestorReinvestmentKrw].every(Number.isFinite)) {
+export function recipientPayout(recipient: InvestorRecipient, payout: InvestorPayout): MonthlyPayoutRecipient {
+  if (![payout.allocationKrw, payout.managementFeeKrw, payout.reinvestmentKrw, payout.totalReturnAccrualKrw].every(Number.isFinite)) {
     throw new RangeError("지급액 계산 결과가 유효한 금액 범위를 벗어났습니다.");
   }
   return {
     ...recipient,
-    allocationKrw: allocation.allocationKrw,
-    displayedKrw: Math.round(allocation.allocationKrw),
-    managementFeeKrw: allocation.selectedManagementFeeKrw,
-    reinvestmentKrw: allocation.selectedInvestorReinvestmentKrw
+    payoutMode: payout.payoutMode,
+    allocationKrw: payout.allocationKrw,
+    displayedKrw: Math.round(payout.allocationKrw),
+    managementFeeKrw: payout.managementFeeKrw,
+    reinvestmentKrw: payout.reinvestmentKrw,
+    totalReturnAccrualKrw: Math.round(payout.totalReturnAccrualKrw)
   };
 }
 
@@ -133,6 +138,8 @@ export type CalculateMonthlyPayoutsInput = {
   dividendMonth: string;
   totalMarketValueKrw: number;
   actualDividendKrw: number;
+  totalReturnAccruals?: readonly TotalReturnAccrual[];
+  payoutModeOf?: (userId: string) => PayoutMode;
 };
 
 export function calculateMonthlyPayouts(input: CalculateMonthlyPayoutsInput) {
@@ -146,29 +153,23 @@ export function calculateMonthlyPayouts(input: CalculateMonthlyPayoutsInput) {
     validDate(new Date(intent.updatedAt));
     return { id: intent.id, userId: intent.userId, amountKrw: intent.amountKrw, completedAt: intent.updatedAt };
   });
-  const principals = new CalculateDividendPrincipalService().execute({
+  for (const accrual of input.totalReturnAccruals ?? []) nonnegativeAmount(accrual.amountKrw, "토탈 리턴 편입액");
+  const { payouts, investorPrincipalKrw } = calculateInvestorPayouts({
     dividendMonth: input.dividendMonth,
-    investments: principalEntries(investments),
-    withdrawals: principalEntries(withdrawals)
-  });
-  const names = new Map(investments.map((intent) => [intent.userId, intent.userName]));
-  const byUser = new Map<string, InvestorRecipient>();
-  for (const principal of principals) {
-    const current = byUser.get(principal.userId);
-    byUser.set(principal.userId, {
-      userId: principal.userId,
-      userName: names.get(principal.userId) ?? "투자자",
-      investmentKrw: (current?.investmentKrw ?? 0) + principal.amountKrw
-    });
-  }
-  const investorPrincipalKrw = [...byUser.values()].reduce((sum, recipient) => sum + recipient.investmentKrw, 0);
-  nonnegativeAmount(investorPrincipalKrw, "전체 적격 투자금액");
-  const recipients = [...byUser.values()].map((recipient) => recipientPayout(recipient, calculateDividendAllocation({
     totalMarketValueKrw: input.totalMarketValueKrw,
     actualDividendKrw: input.actualDividendKrw,
-    selectedInvestmentKrw: recipient.investmentKrw,
-    investorPrincipalKrw
-  })));
+    investments: principalEntries(investments),
+    withdrawals: principalEntries(withdrawals),
+    totalReturnAccruals: input.totalReturnAccruals,
+    payoutModeOf: input.payoutModeOf ?? (() => DEFAULT_PAYOUT_MODE)
+  });
+  nonnegativeAmount(investorPrincipalKrw, "전체 적격 투자금액");
+  const names = new Map(investments.map((intent) => [intent.userId, intent.userName]));
+  const recipients = payouts.map((payout) => recipientPayout({
+    userId: payout.userId,
+    userName: names.get(payout.userId) ?? "투자자",
+    investmentKrw: payout.investmentKrw
+  }, payout));
   const unroundedTotalKrw = recipients.reduce((sum, recipient) => sum + recipient.allocationKrw, 0);
   const displayedTotalKrw = recipients.reduce((sum, recipient) => sum + recipient.displayedKrw, 0);
   return {

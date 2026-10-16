@@ -1,4 +1,5 @@
 import type { MonthlyPayoutRecipient } from "../domain/notifications/index.js";
+import { DEFAULT_PAYOUT_MODE } from "../domain/payout-mode.js";
 import { NotificationRequestError } from "./notification-request-policy.js";
 
 export type PriorNotificationRecipient = { userId: string | null; userName: string };
@@ -25,7 +26,7 @@ export function monthlyCorrectionRecipients(
 ): MonthlyPayoutRecipient[] {
   const recipients = new Map<string, MonthlyPayoutRecipient>(retainedCorrectionRecipients(priorRecipients).map((recipient) => [
     recipient.userId,
-    { ...recipient, investmentKrw: 0, allocationKrw: 0, displayedKrw: 0, managementFeeKrw: 0, reinvestmentKrw: 0 }
+    { ...recipient, payoutMode: DEFAULT_PAYOUT_MODE, investmentKrw: 0, allocationKrw: 0, displayedKrw: 0, managementFeeKrw: 0, reinvestmentKrw: 0, totalReturnAccrualKrw: 0 }
   ]));
   for (const recipient of recalculatedRecipients) {
     recipients.set(recipient.userId, { ...recipient });

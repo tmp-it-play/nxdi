@@ -1,7 +1,7 @@
 import type { Disclosure, PortfolioOverview } from "../../domain/types.js";
 import type { MonthlyPayoutRecipient, RenderedEmail } from "../../domain/notifications/index.js";
 
-export const TEMPLATE_VERSION = "2";
+export const TEMPLATE_VERSION = "3";
 
 type TemplateOptions = { correctionReason?: string };
 
@@ -111,8 +111,10 @@ export type MonthlyPayoutEmailInput = TemplateOptions & {
 
 export function renderMonthlyPayoutEmail(input: MonthlyPayoutEmailInput): RenderedEmail {
   const { recipient } = input;
+  if (recipient.payoutMode === "TOTAL_RETURN") return renderTotalReturnPayoutEmail(input);
   const rows: Array<[string, string]> = [
     ["배당 기준월", input.dividendMonth],
+    ["지급 방식", "월 현금 지급"],
     ["배당 적격 투자금액", won(recipient.investmentKrw)],
     ["현금 지급 안내액", won(recipient.displayedKrw)],
     ["관리 보수", won(recipient.managementFeeKrw)],
@@ -124,6 +126,25 @@ export function renderMonthlyPayoutEmail(input: MonthlyPayoutEmailInput): Render
     `NXDI ${input.dividendMonth} 월별 지급액 안내`,
     `<p>${escapeHtml(recipient.userName)}님, ${escapeHtml(input.dividendMonth)} 기준 지급액을 안내합니다.</p><p style="font-size:32px;font-weight:700;color:#155e75;margin:24px 0">${escapeHtml(won(recipient.displayedKrw))}</p>${table(rows)}<p style="font-size:13px;color:#667085">${note}</p>`,
     [`${recipient.userName}님, ${input.dividendMonth} 기준 지급액을 안내합니다.`, rows.map(([key, value]) => `${key}: ${value}`).join("\n"), note].join("\n\n"),
+    input
+  );
+}
+
+function renderTotalReturnPayoutEmail(input: MonthlyPayoutEmailInput): RenderedEmail {
+  const { recipient } = input;
+  const rows: Array<[string, string]> = [
+    ["배당 기준월", input.dividendMonth],
+    ["지급 방식", "토탈 리턴"],
+    ["배당 적격 투자금액", won(recipient.investmentKrw)],
+    ["원금 편입 안내액", won(recipient.totalReturnAccrualKrw)],
+    ["관리 보수", won(recipient.managementFeeKrw)],
+    ["계산 일시", timestamp(input.calculatedAt)]
+  ];
+  const note = "토탈 리턴 방식은 배분액을 현금으로 송금하지 않고 다음 달부터 배당 적격 잔액에 편입합니다. 전월 실배당과 해당 월의 배당 적격 잔액으로 계산한 참고 금액이며, 원 단위 표시는 개인별 계산액을 반올림한 값입니다.";
+  return render(
+    `NXDI ${input.dividendMonth} 월별 원금 편입액 안내`,
+    `<p>${escapeHtml(recipient.userName)}님, ${escapeHtml(input.dividendMonth)} 기준 토탈 리턴 원금 편입액을 안내합니다.</p><p style="font-size:32px;font-weight:700;color:#155e75;margin:24px 0">${escapeHtml(won(recipient.totalReturnAccrualKrw))}</p>${table(rows)}<p style="font-size:13px;color:#667085">${note}</p>`,
+    [`${recipient.userName}님, ${input.dividendMonth} 기준 토탈 리턴 원금 편입액을 안내합니다.`, rows.map(([key, value]) => `${key}: ${value}`).join("\n"), note].join("\n\n"),
     input
   );
 }

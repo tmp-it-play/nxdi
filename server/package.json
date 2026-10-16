@@ -21,7 +21,8 @@
     "db:bootstrap-notification-recipients": "node scripts/bootstrap-notification-recipients.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:encrypt-sensitive": "tsx scripts/encrypt-sensitive-fields.ts",
-    "db:backfill-roadmap": "tsx scripts/backfill-roadmap-events.ts"
+    "db:backfill-roadmap": "tsx scripts/backfill-roadmap-events.ts",
+    "db:backfill-total-return": "node scripts/backfill-total-return-payout-mode.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
