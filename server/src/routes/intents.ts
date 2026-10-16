@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requestUser } from "../auth/session.js";
+import { DEFAULT_PAYOUT_MODE, PAYOUT_MODES } from "../domain/payout-mode.js";
 import { PRODUCT_MAX_INVESTMENT_KRW, PRODUCT_MIN_INVESTMENT_KRW } from "../domain/product-policy.js";
 import {
   createInvestmentIntentSafely,
@@ -16,6 +17,7 @@ const investmentSchema = z.object({
   guardianConfirmed: z.coerce.boolean().default(false),
   termsAgreed: z.literal("true"),
   dividendPolicyAgreed: z.literal("true"),
+  payoutMode: z.enum(PAYOUT_MODES).default(DEFAULT_PAYOUT_MODE),
   note: z.string().max(500).optional()
 });
 
@@ -69,7 +71,7 @@ export async function registerIntentRoutes(app: FastifyInstance) {
       guardianConfirmed: parsed.data.guardianConfirmed,
       dividendPolicyAgreed: true,
       note: parsed.data.note
-    });
+    }, parsed.data.payoutMode);
     if (result.status === "paused") {
       return redirectWithFlash(reply, "/intents", errorFlash("investment_intake_paused"));
     }

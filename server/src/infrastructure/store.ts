@@ -14,7 +14,9 @@ import {
   PRODUCT_DOCUMENT_SHA256,
   PRODUCT_DOCUMENT_VERSION
 } from "../domain/document-policy.js";
+import type { PayoutMode } from "../domain/payout-mode.js";
 import { withMysqlNamedLock } from "./mysql-named-lock.js";
+import { createPayoutModeIfMissing, readTotalReturnAccruedKrw } from "./payouts.js";
 import { readPortfolioMarketValueKrw } from "./portfolio-store.js";
 import { prisma } from "./prisma.js";
 import { decryptSensitive, encryptSensitive, maskAccountNumber } from "./sensitive-data.js";
@@ -77,7 +79,7 @@ export async function readStoreForUser(userId: string): Promise<AppStore> {
 }
 
 export async function readCompletedNetInvestmentIntentAmount() {
-  const [investments, withdrawals] = await Promise.all([
+  const [investments, withdrawals, totalReturnAccruedKrw] = await Promise.all([
     prisma.investmentIntent.aggregate({
       where: { status: "COMPLETED" },
       _sum: { amountKrw: true }
@@ -85,45 +87,54 @@ export async function readCompletedNetInvestmentIntentAmount() {
     prisma.withdrawalIntent.aggregate({
       where: { status: "COMPLETED" },
       _sum: { amountKrw: true }
-    })
+    }),
+    readTotalReturnAccruedKrw()
   ]);
 
   return Math.max(
-    (investments._sum.amountKrw ?? 0) - (withdrawals._sum.amountKrw ?? 0),
+    (investments._sum.amountKrw ?? 0) + totalReturnAccruedKrw - (withdrawals._sum.amountKrw ?? 0),
     0
   );
 }
 
+/** Total-return accruals count as completed investment for the external intake limit. */
 export async function readCompletedInvestmentIntentAmount() {
-  const result = await prisma.investmentIntent.aggregate({
-    where: { status: "COMPLETED" },
-    _sum: { amountKrw: true }
-  });
-  return result._sum.amountKrw ?? 0;
+  const [result, totalReturnAccruedKrw] = await Promise.all([
+    prisma.investmentIntent.aggregate({
+      where: { status: "COMPLETED" },
+      _sum: { amountKrw: true }
+    }),
+    readTotalReturnAccruedKrw()
+  ]);
+  return (result._sum.amountKrw ?? 0) + totalReturnAccruedKrw;
 }
 
 export async function createInvestmentIntent(
-  input: Omit<InvestmentIntent, "id" | "type" | "status" | "createdAt" | "updatedAt" | "productDocumentVersion" | "productDocumentHash" | "dividendPolicyVersion" | "dividendPolicyHash" | "agreedAt">
+  input: Omit<InvestmentIntent, "id" | "type" | "status" | "createdAt" | "updatedAt" | "productDocumentVersion" | "productDocumentHash" | "dividendPolicyVersion" | "dividendPolicyHash" | "agreedAt">,
+  payoutMode: PayoutMode
 ) {
-  const row = await prisma.investmentIntent.create({
-    data: {
-      ...input,
-      productDocumentVersion: PRODUCT_DOCUMENT_VERSION,
-      productDocumentHash: PRODUCT_DOCUMENT_SHA256,
-      dividendPolicyVersion: DIVIDEND_POLICY_VERSION,
-      dividendPolicyHash: DIVIDEND_POLICY_SHA256,
-      agreedAt: new Date(),
-      status: "PENDING"
-    }
+  const row = await prisma.$transaction(async (transaction) => {
+    await createPayoutModeIfMissing(input.userId, payoutMode, transaction);
+    return transaction.investmentIntent.create({
+      data: {
+        ...input,
+        productDocumentVersion: PRODUCT_DOCUMENT_VERSION,
+        productDocumentHash: PRODUCT_DOCUMENT_SHA256,
+        dividendPolicyVersion: DIVIDEND_POLICY_VERSION,
+        dividendPolicyHash: DIVIDEND_POLICY_SHA256,
+        agreedAt: new Date(),
+        status: "PENDING"
+      }
+    });
   });
   return toInvestmentIntent(row);
 }
 
-export async function createInvestmentIntentSafely(input: InvestmentRequestInput) {
+export async function createInvestmentIntentSafely(input: InvestmentRequestInput, payoutMode: PayoutMode) {
   const service = new RequestInvestmentService({
     completedInvestmentIntentAmount: readCompletedInvestmentIntentAmount,
     portfolioMarketValueKrw: readPortfolioMarketValueKrw,
-    create: createInvestmentIntent
+    create: (values) => createInvestmentIntent(values, payoutMode)
   });
   return service.execute(input);
 }
@@ -153,11 +164,14 @@ export async function createWithdrawalIntentSafely(
       await transaction.$queryRaw`SELECT id FROM tb_withdrawal_intents WHERE userId = ${input.userId} FOR UPDATE`;
       return work({
         completedInvestmentIntentAmount: async () => {
-          const result = await transaction.investmentIntent.aggregate({
-            where: { userId: input.userId, status: "COMPLETED" },
-            _sum: { amountKrw: true }
-          });
-          return result._sum.amountKrw ?? 0;
+          const [result, totalReturnAccruedKrw] = await Promise.all([
+            transaction.investmentIntent.aggregate({
+              where: { userId: input.userId, status: "COMPLETED" },
+              _sum: { amountKrw: true }
+            }),
+            readTotalReturnAccruedKrw(input.userId, transaction)
+          ]);
+          return (result._sum.amountKrw ?? 0) + totalReturnAccruedKrw;
         },
         completedWithdrawalIntentAmount: async () => {
           const result = await transaction.withdrawalIntent.aggregate({
@@ -223,11 +237,14 @@ export async function updateIntentStatus(params: {
           return row ? { id: row.id, type: "WITHDRAWAL" as const, userId: row.userId, amountKrw: row.amountKrw, status: row.status } : null;
         },
         completedInvestmentAmountExcluding: async (id) => {
-          const result = await transaction.investmentIntent.aggregate({
-            where: { userId: owner.userId, status: "COMPLETED", id: id ? { not: id } : undefined },
-            _sum: { amountKrw: true }
-          });
-          return result._sum.amountKrw ?? 0;
+          const [result, totalReturnAccruedKrw] = await Promise.all([
+            transaction.investmentIntent.aggregate({
+              where: { userId: owner.userId, status: "COMPLETED", id: id ? { not: id } : undefined },
+              _sum: { amountKrw: true }
+            }),
+            readTotalReturnAccruedKrw(owner.userId, transaction)
+          ]);
+          return (result._sum.amountKrw ?? 0) + totalReturnAccruedKrw;
         },
         completedWithdrawalAmountExcluding: async (id) => {
           const result = await transaction.withdrawalIntent.aggregate({

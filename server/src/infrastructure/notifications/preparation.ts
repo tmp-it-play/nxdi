@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { activeInvestorRecipients, calculateMonthlyPayouts, dueNotificationPeriods, kstDateKey, type NotificationType } from "../../domain/notifications/index.js";
 import type { Disclosure, PortfolioOverview } from "../../domain/types.js";
 import { readDisclosure } from "../disclosures.js";
+import { readPayoutContext } from "../payouts.js";
 import { getManualPortfolioOverview } from "../portfolio-store.js";
 import { prisma } from "../prisma.js";
 import { renderDisclosureEmail, renderMonthlyPayoutEmail, renderQuarterlyHoldingsEmail, TEMPLATE_VERSION } from "./templates.js";
@@ -39,10 +40,11 @@ export async function prepareProduction(type: NotificationType, period: string |
   const record = await db.monthlyDividendRecord.findUnique({ where: { dividendMonth: period } });
   if (!record) return null;
   requireCondition(record.referenceMarketValueKrw !== null && Number.isFinite(record.referenceMarketValueKrw) && record.referenceMarketValueKrw > 0, "MONTH_END_REQUIRED", "확정된 월말 평가액을 실배당 기록에 등록해 주세요.");
-  const result = calculateMonthlyPayouts({ store, dividendMonth: period, totalMarketValueKrw: portfolio.totalMarketValueKrw, actualDividendKrw: record.actualDividendKrw });
+  const payoutContext = await readPayoutContext(period, db);
+  const result = calculateMonthlyPayouts({ store, dividendMonth: period, totalMarketValueKrw: portfolio.totalMarketValueKrw, actualDividendKrw: record.actualDividendKrw, ...payoutContext });
   const recipients = priorRecipients === undefined ? result.recipients : monthlyCorrectionRecipients(priorRecipients, result.recipients);
   return {
-    facts: { ...result, recipients, policy: productPolicyDto(), policyVersion: DIVIDEND_POLICY_VERSION, policyHash: DIVIDEND_POLICY_SHA256, portfolio, record, store, calculatedAt: now.toISOString() },
+    facts: { ...result, recipients, totalReturnAccruals: payoutContext.totalReturnAccruals, policy: productPolicyDto(), policyVersion: DIVIDEND_POLICY_VERSION, policyHash: DIVIDEND_POLICY_SHA256, portfolio, record, store, calculatedAt: now.toISOString() },
     recipients: recipients.map((recipient) => ({ userId: recipient.userId, userName: recipient.userName, facts: recipient,
       rendered: renderMonthlyPayoutEmail({ dividendMonth: period, recipient, calculatedAt: now.toISOString(), correctionReason: reason }) }))
   };

@@ -161,6 +161,8 @@ describe("Fastify route smoke tests", () => {
           requestedUserId = userId;
           return {
             store: { investmentIntents: [], withdrawalIntents: [] },
+            payoutMode: null,
+            totalReturnAccruedKrw: 0,
             withdrawalReference: { completedNetInvestmentIntentKrw: 0, pendingWithdrawalIntentKrw: 0, maxRequestIntentKrw: 0 },
             investmentAvailability: {
               completedInvestmentIntentKrw: 0,
