@@ -170,8 +170,8 @@ export default async function AdminPage() {
       />
 
       <Grid columns={4} className="mt-16">
-        <Metric label="외부 출자 총액 (TR 포함)" value={formatKrw(externalTotalCapital)} />
-        <Metric label="외부 순투자 원금 (TR 제외)" value={formatKrw(externalNetPrincipal)} />
+        <Metric label="외부 출자 총액" value={formatKrw(externalTotalCapital)} />
+        <Metric label="외부 순투자 원금" value={formatKrw(externalNetPrincipal)} />
         <Metric label="실배당 기록" value={`${monthlyDividendRecords.length}개월`} />
         <Metric label="포트폴리오 평가액" value={formatKrw(portfolio.totalMarketValueKrw)} />
       </Grid>
