@@ -34,8 +34,6 @@ COPY --from=build --chown=node:node /app/node_modules/@prisma/client ./node_modu
 COPY --from=build --chown=node:node /app/node_modules/@prisma/engines ./node_modules/@prisma/engines
 COPY --chown=node:node scripts/notification-baseline.mjs ./scripts/notification-baseline.mjs
 COPY --chown=node:node scripts/bootstrap-notification-recipients.ts ./scripts/bootstrap-notification-recipients.ts
-# One-off total-return backfill; remove with scripts/backfill-total-return-payout-mode.ts.
-COPY --chown=node:node scripts/backfill-total-return-payout-mode.ts ./scripts/backfill-total-return-payout-mode.ts
 
 USER node
 
