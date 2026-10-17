@@ -165,6 +165,16 @@ export type DividendAllocationIntentDto = {
   payoutMode: PayoutMode;
 };
 
+export type InvestorBalanceDto = {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  payoutMode: PayoutMode | null;
+  netPrincipalKrw: number;
+  totalReturnBalanceKrw: number;
+  totalBalanceKrw: number;
+};
+
 export type SimulationResponse = {
   user: AppUser | null;
   amount: number;
@@ -195,7 +205,7 @@ export type AdminDashboardResponse = {
   roadmapToday: string;
   roadmapHorizon: string;
   dividendPrincipalsByMonth: Record<string, DividendAllocationIntentDto[]>;
-  totalReturnAccruedKrw: number;
+  investorBalances: InvestorBalanceDto[];
   policy: ProductPolicyDto;
 };
 

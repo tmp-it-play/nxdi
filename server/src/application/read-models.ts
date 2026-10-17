@@ -13,6 +13,7 @@ import {
 } from "../domain/chart-metrics.js";
 import { dividendEligibleFromMonth } from "../domain/dividend-eligibility.js";
 import { investmentIntentAvailabilityFromAmounts } from "../domain/investment-intent-availability.js";
+import { investorBalances } from "../domain/investor-balances.js";
 import {
   eligiblePayoutPrincipals,
   isTotalReturnPrincipalEntryId,
@@ -405,7 +406,7 @@ export async function adminDashboardReadModel() {
     roadmapToday,
     roadmapHorizon,
     dividendPrincipalsByMonth,
-    totalReturnAccruedKrw: totalReturnAccruals.reduce((sum, accrual) => sum + accrual.amountKrw, 0),
+    investorBalances: investorBalances(store, payoutRows, payoutModes),
     policy: productPolicyDto()
   };
 }
