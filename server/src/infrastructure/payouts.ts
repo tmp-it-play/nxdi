@@ -41,12 +41,12 @@ export async function readPayoutMode(userId: string, db: PayoutDb = prisma): Pro
   return row ? parsePayoutMode(row.payoutMode) ?? DEFAULT_PAYOUT_MODE : null;
 }
 
-/** Records the first choice only; later changes are made directly in the database. */
-export async function createPayoutModeIfMissing(userId: string, payoutMode: PayoutMode, db: PayoutDb = prisma) {
+/** Saves the investor's choice; booked months keep their mode, so it applies from the next calculated month. */
+export async function savePayoutMode(userId: string, payoutMode: PayoutMode, db: PayoutDb = prisma) {
   await db.investorPayoutPreference.upsert({
     where: { userId },
     create: { userId, payoutMode },
-    update: {}
+    update: { payoutMode }
   });
 }
 

@@ -16,7 +16,7 @@ import {
 } from "../domain/document-policy.js";
 import type { PayoutMode } from "../domain/payout-mode.js";
 import { withMysqlNamedLock } from "./mysql-named-lock.js";
-import { createPayoutModeIfMissing, readTotalReturnAccruedKrw } from "./payouts.js";
+import { readTotalReturnAccruedKrw, savePayoutMode } from "./payouts.js";
 import { readPortfolioMarketValueKrw } from "./portfolio-store.js";
 import { prisma } from "./prisma.js";
 import { decryptSensitive, encryptSensitive, maskAccountNumber } from "./sensitive-data.js";
@@ -114,7 +114,7 @@ export async function createInvestmentIntent(
   payoutMode: PayoutMode
 ) {
   const row = await prisma.$transaction(async (transaction) => {
-    await createPayoutModeIfMissing(input.userId, payoutMode, transaction);
+    await savePayoutMode(input.userId, payoutMode, transaction);
     return transaction.investmentIntent.create({
       data: {
         ...input,
