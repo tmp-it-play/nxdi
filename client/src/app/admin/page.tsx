@@ -27,7 +27,7 @@ import { getAdminDashboard, getAdminNotifications, getSession } from "@/lib/api"
 import { FLASH_COOKIE_NAME, getFlashMessages } from "@/lib/flash";
 import { formatCurrency, formatDateTime, formatKrw, formatNumber, statusLabel } from "@/lib/format";
 import { stockPrimaryLabel, stockSecondaryLabel } from "@/lib/stock-display";
-import type { AppUser, IntentStatus } from "@/lib/types";
+import type { AppUser, IntentStatus, PayoutMode } from "@/lib/types";
 
 const ADMIN_DISCLOSURES_PAGE_SIZE = 8;
 const ADMIN_PORTFOLIO_PAGE_SIZE = 8;
@@ -35,6 +35,11 @@ const ADMIN_DIVIDEND_PAGE_SIZE = 8;
 const ADMIN_DETACHED_DIVIDEND_PAGE_SIZE = 8;
 const ADMIN_MONTHLY_DIVIDEND_PAGE_SIZE = 12;
 const ADMIN_INTENTS_PAGE_SIZE = 10;
+
+const PAYOUT_MODE_LABELS: Record<PayoutMode, string> = {
+  TOTAL_RETURN: "토탈 리턴",
+  MONTHLY_CASH: "월 현금 지급"
+};
 
 function statusClass(status: string): "accepted" | "rejected" | "pending" {
   if (status === "COMPLETED") return "accepted";
@@ -125,30 +130,13 @@ export default async function AdminPage() {
     roadmapEvents,
     roadmapToday,
     dividendPrincipalsByMonth,
-    totalReturnAccruedKrw,
+    investorBalances,
     policy
   } = dashboard;
   const flashMessages = await getFlashMessages();
   const notifications = await getAdminNotifications().catch(() => null);
-  const completedInvestment = store.investmentIntents
-    .filter((intent) => intent.status === "COMPLETED")
-    .reduce((sum, intent) => sum + intent.amountKrw, 0);
-  const completedWithdrawal = store.withdrawalIntents
-    .filter((intent) => intent.status === "COMPLETED")
-    .reduce((sum, intent) => sum + intent.amountKrw, 0);
-  // Withdrawals reach an investor's total-return accruals only after their investment principal.
-  const netPrincipalByUser = new Map<string, number>();
-  for (const intent of store.investmentIntents) {
-    if (intent.status !== "COMPLETED") continue;
-    netPrincipalByUser.set(intent.userId, (netPrincipalByUser.get(intent.userId) ?? 0) + intent.amountKrw);
-  }
-  for (const intent of store.withdrawalIntents) {
-    if (intent.status !== "COMPLETED") continue;
-    netPrincipalByUser.set(intent.userId, (netPrincipalByUser.get(intent.userId) ?? 0) - intent.amountKrw);
-  }
-  const externalNetPrincipal = [...netPrincipalByUser.values()]
-    .reduce((sum, amount) => sum + Math.max(amount, 0), 0);
-  const externalTotalCapital = Math.max(completedInvestment + totalReturnAccruedKrw - completedWithdrawal, 0);
+  const externalNetPrincipal = investorBalances.reduce((sum, balance) => sum + balance.netPrincipalKrw, 0);
+  const externalTotalCapital = investorBalances.reduce((sum, balance) => sum + balance.totalBalanceKrw, 0);
   const dividendRecordsBySymbol = new Map(
     dividendRecords.map((record) => [record.symbol.toUpperCase(), record])
   );
@@ -447,6 +435,43 @@ export default async function AdminPage() {
         </PaginatedPanelTable>
 
       <NotificationManager initialData={notifications} />
+
+      <SectionHeader
+        id="admin-investors"
+        title="투자자 현황"
+        description="완료된 투자·출금 의향과 토탈 리턴 편입액 기준의 현재 잔액입니다."
+      />
+
+      <PaginatedPanelTable
+          colSpan={5}
+          emptyText="잔액이 있는 투자자가 없습니다."
+          header={
+            <tr>
+              <th>투자자</th>
+              <th>수령 방식</th>
+              <th>순투자 원금</th>
+              <th>TR 편입액</th>
+              <th>합산 잔액</th>
+            </tr>
+          }
+          label="투자자 현황 페이지"
+          panelHeader={<h2>투자자 현황</h2>}
+          pageSize={ADMIN_INTENTS_PAGE_SIZE}
+        >
+          {investorBalances.map((balance) => (
+            <tr key={balance.userId}>
+              <td>
+                <strong>{balance.userName}</strong>
+                <br />
+                <MutedText>{balance.userEmail}</MutedText>
+              </td>
+              <td>{balance.payoutMode ? PAYOUT_MODE_LABELS[balance.payoutMode] : "미설정 (월 현금 지급)"}</td>
+              <td>{formatKrw(balance.netPrincipalKrw)}</td>
+              <td>{formatKrw(balance.totalReturnBalanceKrw)}</td>
+              <td><strong>{formatKrw(balance.totalBalanceKrw)}</strong></td>
+            </tr>
+          ))}
+        </PaginatedPanelTable>
 
       <SectionHeader
         id="admin-investments"
