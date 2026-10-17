@@ -25,13 +25,8 @@ import {
 import { getMyIntents } from "@/lib/api";
 import { formatDateTime, formatKrw, formatNumber, statusLabel } from "@/lib/format";
 import { FLASH_COOKIE_NAME, getFlashMessages } from "@/lib/flash";
-import type { PayoutMode } from "@/lib/types";
+import { PayoutModeToggle } from "./PayoutModeToggle";
 import { TermsAgreement } from "./TermsAgreement";
-
-const PAYOUT_MODE_LABELS: Record<PayoutMode, string> = {
-  TOTAL_RETURN: "토탈 리턴",
-  MONTHLY_CASH: "월 현금 지급"
-};
 
 function statusClass(status: string): "accepted" | "rejected" | "pending" {
   if (status === "COMPLETED") return "accepted";
@@ -141,29 +136,7 @@ export default async function IntentsPage() {
             <Field htmlFor="investContact" label="전화번호 또는 이메일">
               <ContactInput id="investContact" name="contact" placeholder="010-0000-0000 또는 name@example.com" required />
             </Field>
-            {payoutMode ? (
-              <Field htmlFor="investPayoutMode" label="배당 수령 방식">
-                <input id="investPayoutMode" readOnly value={PAYOUT_MODE_LABELS[payoutMode]} />
-                <p className="field-help">수령 방식은 계정별로 적용되며, 변경은 관리자에게 문의해 주세요.</p>
-              </Field>
-            ) : (
-<div className="field">
-                <span className="field-label" id="investPayoutModeLabel">배당 수령 방식</span>
-                <div className="payout-mode-toggle" role="radiogroup" aria-labelledby="investPayoutModeLabel">
-                  <label>
-                    <input defaultChecked name="payoutMode" type="radio" value="TOTAL_RETURN" />
-                    <span>{PAYOUT_MODE_LABELS.TOTAL_RETURN}</span>
-                  </label>
-                  <label>
-                    <input name="payoutMode" type="radio" value="MONTHLY_CASH" />
-                    <span>{PAYOUT_MODE_LABELS.MONTHLY_CASH}</span>
-                  </label>
-                </div>
-                <p className="field-help">
-                  토탈 리턴은 배분액을 다음 달부터 원금에 편입하고, 월 현금 지급은 매월 현금 지급 상한 범위에서 지급합니다.
-                </p>
-              </div>
-            )}
+            <PayoutModeToggle key={payoutMode ?? "unset"} currentMode={payoutMode} />
             <TermsAgreement markdown={termsMarkdown} />
             <TermsAgreement
               markdown={dividendPolicyMarkdown}

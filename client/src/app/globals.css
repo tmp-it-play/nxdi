@@ -2102,6 +2102,30 @@ button.investment-intake-paused:disabled {
   width: 1px;
 }
 
+.terms-modal.payout-mode-confirm {
+  grid-template-rows: auto auto auto;
+  width: min(440px, calc(100vw - 40px));
+}
+
+.payout-mode-confirm-body {
+  color: var(--muted);
+  display: grid;
+  font-size: var(--tds-text-sm);
+  gap: var(--tds-space-2);
+  padding: var(--tds-space-4) var(--tds-space-5) 0;
+}
+
+.payout-mode-confirm-body p {
+  margin: 0;
+}
+
+.payout-mode-confirm-actions {
+  display: flex;
+  gap: var(--tds-space-2);
+  justify-content: flex-end;
+  padding: var(--tds-space-4) var(--tds-space-5) var(--tds-space-5);
+}
+
 .inline-fields {
   align-items: end;
   display: grid;
