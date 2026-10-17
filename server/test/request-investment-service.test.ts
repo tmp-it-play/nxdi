@@ -40,10 +40,10 @@ function repositoryFor(completedInvestmentIntentKrw: number, portfolioMarketValu
   return { repository, createCalls: () => createCalls };
 }
 
-describe("Given completed investment intents equal to 10% of the portfolio value", () => {
+describe("Given completed investment intents equal to 50% of the portfolio value", () => {
   describe("When a new investment intent is requested", () => {
     it("Then it accepts the request because the limit has not been exceeded", async () => {
-      const fake = repositoryFor(1_000_000, 10_000_000);
+      const fake = repositoryFor(5_000_000, 10_000_000);
       const result = await new RequestInvestmentService(fake.repository).execute(input);
 
       assert.equal(result.status, "created");
@@ -53,15 +53,15 @@ describe("Given completed investment intents equal to 10% of the portfolio value
   });
 });
 
-describe("Given completed investment intents above 10% of the portfolio value", () => {
+describe("Given completed investment intents above 50% of the portfolio value", () => {
   describe("When a new investment intent is requested", () => {
     it("Then it pauses intake without saving the request", async () => {
-      const fake = repositoryFor(1_000_001, 10_000_000);
+      const fake = repositoryFor(5_000_001, 10_000_000);
       const result = await new RequestInvestmentService(fake.repository).execute(input);
 
       assert.equal(result.status, "paused");
       assert.equal(result.availability.isPaused, true);
-      assert.equal(result.availability.maxCompletedInvestmentIntentKrw, 1_000_000);
+      assert.equal(result.availability.maxCompletedInvestmentIntentKrw, 5_000_000);
       assert.equal(fake.createCalls(), 0);
     });
   });
