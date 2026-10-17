@@ -4,6 +4,7 @@ import { Fragment, useRef, useState, useTransition } from "react";
 import type { FormEvent, FormHTMLAttributes } from "react";
 import { useRouter } from "next/navigation";
 import { showToast, type ToastMessage } from "@/app/components/toast";
+import { clearFieldError, validateFormFields } from "@/lib/form-validation";
 
 export type ApiMutationResponse = {
   redirectTo?: string;
@@ -77,6 +78,13 @@ export function ApiMutationForm({
     ).toUpperCase();
     const target = new URL(action, window.location.href);
 
+    // Inline field errors replace the browser's validation bubbles (the form is `noValidate`).
+    const skipValidation = submitter?.hasAttribute("formnovalidate") ?? false;
+    if (!skipValidation && !validateFormFields(form)) {
+      event.preventDefault();
+      return;
+    }
+
     // GET and cross-origin forms retain their normal browser behavior.
     if (method === "GET" || target.origin !== window.location.origin) return;
 
@@ -130,6 +138,9 @@ export function ApiMutationForm({
       {...props}
       aria-busy={busy}
       className={["api-mutation-form", className].filter(Boolean).join(" ")}
+      noValidate
+      onChange={(event) => clearFieldError(event.target)}
+      onInput={(event) => clearFieldError(event.target as Element)}
       onSubmit={submit}
     >
       <fieldset className="api-mutation-fields" disabled={busy}>

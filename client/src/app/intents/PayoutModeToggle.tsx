@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { validateFormFields } from "@/lib/form-validation";
 import type { PayoutMode } from "@/lib/types";
 
 const PAYOUT_MODE_LABELS: Record<PayoutMode, string> = {
@@ -34,9 +35,12 @@ export function PayoutModeToggle({ currentMode }: { currentMode: PayoutMode | nu
         return;
       }
       if (selectedRef.current === currentMode) return;
+      // Invalid input is reported by the form first; the change is confirmed only for a submittable form.
+      const submitter = event.submitter;
+      if (!submitter?.hasAttribute("formnovalidate") && !validateFormFields(form)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      submitterRef.current = event.submitter;
+      submitterRef.current = submitter;
       setConfirming(true);
     };
     form.addEventListener("submit", handleSubmit);
@@ -101,7 +105,7 @@ export function PayoutModeToggle({ currentMode }: { currentMode: PayoutMode | nu
               <div>
                 <h2 id={titleId}>수령 방식을 변경할까요?</h2>
                 <p>
-                  {PAYOUT_MODE_LABELS[currentMode]}에서 {PAYOUT_MODE_LABELS[selected]}(으)로 변경한 뒤 의향서를 제출합니다.
+                  {PAYOUT_MODE_LABELS[currentMode]}에서 {PAYOUT_MODE_LABELS[selected]}으로 변경한 뒤 의향서를 제출합니다.
                 </p>
               </div>
             </header>

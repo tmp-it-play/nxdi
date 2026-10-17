@@ -2131,6 +2131,54 @@ button.investment-intake-paused:disabled {
   padding: var(--tds-space-4) var(--tds-space-5) var(--tds-space-5);
 }
 
+.field-error {
+  color: var(--danger);
+  font-size: var(--tds-text-xs);
+  font-weight: 600;
+  margin: 0;
+  text-align: left;
+}
+
+.terms-agreement + .field-error {
+  margin-top: calc(var(--tds-space-1) * -1);
+}
+
+.field-invalid input:not([type="checkbox"]):not([type="radio"]),
+.field-invalid textarea,
+.field-invalid select {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+.field-invalid input::placeholder,
+.field-invalid textarea::placeholder {
+  color: var(--danger);
+  opacity: 0.7;
+}
+
+.terms-agreement.field-invalid {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+.field-shake {
+  animation: field-shake 0.36s ease-in-out;
+}
+
+@keyframes field-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field-shake {
+    animation: none;
+  }
+}
+
 .inline-fields {
   align-items: end;
   display: grid;
