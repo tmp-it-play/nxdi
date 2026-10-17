@@ -2085,8 +2085,13 @@ button.investment-intake-paused:disabled {
   position: relative;
 }
 
+.payout-mode-toggle label:hover {
+  color: var(--text);
+}
+
 .payout-mode-toggle label:has(input:checked) {
-  background: var(--text);
+  background: var(--accent);
+  box-shadow: var(--shadow);
   color: #fff;
 }
 
