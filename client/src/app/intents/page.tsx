@@ -3,6 +3,7 @@ import path from "path";
 import { ArrowDownToLine, ArrowUpRight, LockKeyhole } from "lucide-react";
 import { AuthNavActions, DataGsmLoginButton } from "@/app/components/auth-actions";
 import { ApiMutationForm } from "@/app/components/api-mutation-form";
+import { ContactInput } from "@/app/components/contact-input";
 import { FormattedNumberInput } from "@/app/components/formatted-number-input";
 import { ToastStack, type ToastMessage } from "@/app/components/toast";
 import {
@@ -138,7 +139,7 @@ export default async function IntentsPage() {
               <input id="depositorName" name="depositorName" defaultValue={user.name} required />
             </Field>
             <Field htmlFor="investContact" label="전화번호 또는 이메일">
-              <input id="investContact" name="contact" placeholder="010-0000-0000 또는 name@example.com" required />
+              <ContactInput id="investContact" name="contact" placeholder="010-0000-0000 또는 name@example.com" required />
             </Field>
             {payoutMode ? (
               <Field htmlFor="investPayoutMode" label="배당 수령 방식">
@@ -146,23 +147,22 @@ export default async function IntentsPage() {
                 <p className="field-help">수령 방식은 계정별로 적용되며, 변경은 관리자에게 문의해 주세요.</p>
               </Field>
             ) : (
-              <fieldset className="payout-mode-options">
-                <legend>배당 수령 방식</legend>
-                <label>
-                  <input name="payoutMode" required type="radio" value="TOTAL_RETURN" />
-                  <span>
-                    <strong>{PAYOUT_MODE_LABELS.TOTAL_RETURN}</strong>
-                    <small>배분액을 현금으로 받지 않고 다음 달부터 배당 적격 잔액에 편입합니다.</small>
-                  </span>
-                </label>
-                <label>
-                  <input name="payoutMode" required type="radio" value="MONTHLY_CASH" />
-                  <span>
-                    <strong>{PAYOUT_MODE_LABELS.MONTHLY_CASH}</strong>
-                    <small>매월 현금 지급 상한 범위의 배분액을 지급받습니다.</small>
-                  </span>
-                </label>
-              </fieldset>
+<div className="field">
+                <span className="field-label" id="investPayoutModeLabel">배당 수령 방식</span>
+                <div className="payout-mode-toggle" role="radiogroup" aria-labelledby="investPayoutModeLabel">
+                  <label>
+                    <input defaultChecked name="payoutMode" type="radio" value="TOTAL_RETURN" />
+                    <span>{PAYOUT_MODE_LABELS.TOTAL_RETURN}</span>
+                  </label>
+                  <label>
+                    <input name="payoutMode" type="radio" value="MONTHLY_CASH" />
+                    <span>{PAYOUT_MODE_LABELS.MONTHLY_CASH}</span>
+                  </label>
+                </div>
+                <p className="field-help">
+                  토탈 리턴은 배분액을 다음 달부터 원금에 편입하고, 월 현금 지급은 매월 현금 지급 상한 범위에서 지급합니다.
+                </p>
+              </div>
             )}
             <TermsAgreement markdown={termsMarkdown} />
             <TermsAgreement
@@ -222,7 +222,7 @@ export default async function IntentsPage() {
               <input disabled={!canRequestWithdrawal} id="accountHolder" name="accountHolder" defaultValue={user.name} required />
             </Field>
             <Field htmlFor="withdrawContact" label="전화번호 또는 이메일">
-              <input
+              <ContactInput
                 disabled={!canRequestWithdrawal}
                 id="withdrawContact"
                 name="contact"
