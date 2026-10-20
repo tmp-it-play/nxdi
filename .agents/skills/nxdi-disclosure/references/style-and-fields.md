@@ -22,7 +22,7 @@ Every NXDI notice or disclosure must follow this shape:
 ## Title Rules
 
 - Format the title as a Korean type tag plus the key target and matter.
-- When multiple tickers are involved, use the representative ticker followed by `외`.
+- When multiple tickers are involved, use the representative ticker followed by `외`. For Korean-listed holdings, use the representative Korean name instead of the stock code.
 - Example: `[공지] OCR 외 특별 증자 정기 진행 안내`.
 - Keep the title factual. Do not add promotional or explanatory wording.
 
@@ -39,7 +39,9 @@ Use only the fields that fit the event. Preserve Korean field labels in final ou
 | Field labels                                                             | Use                                             |
 |--------------------------------------------------------------------------|-------------------------------------------------|
 | `[증자 구분]`, `[매도 사유]`, `[행위 구분]`, `[사유]`                                  | Nature, basis, or reason for the event.         |
+| `[매수 재원]`                                                              | Funding source for a planned or executed purchase. |
 | `[금액]`, `[체결금액]`, `[예정 금액]`, `[회차별 금액]`, `[총 증자액]`, `[축소 규모]`            | Amounts. Distinguish planned and final amounts. |
+| `[정산금액]`                                                               | Net settled amount after fees, shown with the deducted fee, such as `원화 58,232원 (수수료 8원 차감)`. Use alongside `[체결금액]` when `[체결금액]` is the pre-fee price. |
 | `[일시]`, `[체결 일시]`, `[예정 일시]`, `[진행 기간]`, `[진행 주기]`, `[축소 일시]`, `[축소 기간]` | Time, date, period, or cadence.                 |
 | `[종목]`, `[매수 종목]`, `[매도 종목]`, `[예정 종목]`, `[매도 예정 종목]`, `[축소 대상]`         | Target tickers, holdings, or target scope.      |
 | `[공시일]`                                                                  | Document creation or publication date.          |
@@ -63,9 +65,11 @@ The closing paragraph must match the status:
 
 ### Tickers
 
-- Use tickers as the primary identifier.
+- For overseas holdings, use tickers as the primary identifier.
 - On first mention only, add the Korean name in parentheses, such as `OCR(오피드 아일랜드 캐피탈)`, `ITUB(이타우 우니방쿠 홀딩스 ADR)`, or `O(리얼티 인컴)`.
 - On repeated mentions, use the ticker only.
+- For Korean-listed holdings with numeric stock codes, put the Korean name first and the code in parentheses, such as `TIGER CD금리투자KIS(357870)`.
+- Use the name exactly as the user gives it. Add the code on first mention and in ticker fields such as `[매도 종목]` or `[예정 종목]`; use the name only on repeated mentions.
 
 ### Dates and Times
 
@@ -91,7 +95,7 @@ Before returning a draft or review, verify:
 - Planned and completed portions are not mixed in one document.
 - The capital increase subtype matches the guide and existing disclosure terminology.
 - Amounts include currency, commas, and the correct planned/final uncertainty wording.
-- Tickers are consistent, with Korean names only on first mention.
+- Tickers are consistent, with Korean names only on first mention; Korean-listed holdings use `종목명(종목코드)` with the name first.
 - Quantities, amounts, and dates do not contradict each other.
 - Buy/sell quantities align when the event implies a matching relationship.
 - Sale or cleanup reasons match the actual nature of the ticker.
