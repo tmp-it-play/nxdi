@@ -571,7 +571,7 @@ export default async function AdminPage() {
         <DividendAllocationCalculator
           defaultDividendMonth={monthlyDividendRecords[0]?.dividendMonth ?? roadmapToday.slice(0, 7)}
           companyDividendTransferRate={policy.companyDividendTransferRate}
-          managementFeeRate={policy.managementFeeRate}
+          annualManagementFeeRate={policy.annualManagementFeeRate}
           principalsByMonth={dividendPrincipalsByMonth}
           monthlyDividendRecords={monthlyDividendRecords}
           monthlyInvestorDividendCapRate={policy.monthlyInvestorDividendCapRate}

@@ -4,7 +4,7 @@ import { calculateDividendAllocation, type DividendAllocationInput } from "./div
 
 const SERVER_POLICY = {
   companyDividendTransferRate: 0.2,
-  managementFeeRate: 0.05,
+  annualManagementFeeRate: 0.003,
   monthlyInvestorDividendCapRate: 0.18 / 12
 };
 
@@ -27,16 +27,16 @@ describe("Given the policy DTO supplied by the server", () => {
       assert.equal(allocation.companyDividendTransferRate, 0.2);
       assert.equal(allocation.monthlyInvestorDividendCapRate, 0.18 / 12);
       assert.equal(allocation.companyTransferredDividendKrw, 10_000);
-      assert.equal(allocation.managementFeeKrw, 3_000);
-      assert.equal(allocation.investorDistributionPoolKrw, 57_000);
+      assert.equal(allocation.managementFeeKrw, 25_000);
+      assert.equal(allocation.investorDistributionPoolKrw, 35_000);
       assert.equal(allocation.selectedInvestorWeight, 0.5);
-      assert.equal(allocation.allocationKrw, 28_500);
+      assert.equal(allocation.allocationKrw, 17_500);
     });
 
     it("then clamps malformed rates defensively instead of introducing fallback policy", () => {
       const allocation = calculateDividendAllocation(previewInput({
         companyDividendTransferRate: Number.POSITIVE_INFINITY,
-        managementFeeRate: Number.POSITIVE_INFINITY,
+        annualManagementFeeRate: Number.POSITIVE_INFINITY,
         monthlyInvestorDividendCapRate: -0.1
       }));
 

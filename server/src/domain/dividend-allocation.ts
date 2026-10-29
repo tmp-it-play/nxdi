@@ -1,14 +1,13 @@
 import {
   PRODUCT_ANNUAL_INVESTOR_DIVIDEND_CAP_RATE,
+  PRODUCT_ANNUAL_MANAGEMENT_FEE_RATE,
   PRODUCT_COMPANY_DIVIDEND_TRANSFER_RATE,
-  PRODUCT_MANAGEMENT_FEE_RATE,
   PRODUCT_MONTHLY_INVESTOR_DIVIDEND_CAP_RATE
 } from "./product-policy.js";
 
 export {
   PRODUCT_ANNUAL_INVESTOR_DIVIDEND_CAP_RATE,
   PRODUCT_COMPANY_DIVIDEND_TRANSFER_RATE,
-  PRODUCT_MANAGEMENT_FEE_RATE,
   PRODUCT_MONTHLY_INVESTOR_DIVIDEND_CAP_RATE
 };
 
@@ -18,7 +17,6 @@ export type DividendAllocationInput = {
   investorPrincipalKrw: number;
   totalMarketValueKrw: number;
   companyDividendTransferRate?: number;
-  managementFeeRate?: number;
   monthlyInvestorDividendCapRate?: number;
 };
 
@@ -44,10 +42,6 @@ export function calculateDividendAllocation(input: DividendAllocationInput) {
     input.monthlyInvestorDividendCapRate,
     PRODUCT_MONTHLY_INVESTOR_DIVIDEND_CAP_RATE
   );
-  const managementFeeRate = cappedRate(
-    input.managementFeeRate,
-    PRODUCT_MANAGEMENT_FEE_RATE
-  );
 
   const companyPrincipalKrw = Math.max(totalMarketValueKrw - investorPrincipalKrw, 0);
   const dividendBaseKrw = investorPrincipalKrw + companyPrincipalKrw;
@@ -66,7 +60,11 @@ export function calculateDividendAllocation(input: DividendAllocationInput) {
     investorBaseDividendKrw + companyTransferredDividendKrw,
     actualDividendKrw
   );
-  const managementFeeKrw = investorGrossEntitlementKrw * managementFeeRate;
+  // Collect only from this month's entitlement; an uncovered fee is waived.
+  const managementFeeKrw = Math.min(
+    investorGrossEntitlementKrw,
+    investorPrincipalKrw * PRODUCT_ANNUAL_MANAGEMENT_FEE_RATE / 12
+  );
   const investorNetEntitlementKrw = Math.max(investorGrossEntitlementKrw - managementFeeKrw, 0);
   const investorDistributionPoolKrw = Math.min(
     investorNetEntitlementKrw,
@@ -95,7 +93,7 @@ export function calculateDividendAllocation(input: DividendAllocationInput) {
     companyTransferNeedKrw,
     companyTransferLimitKrw,
     companyTransferredDividendKrw,
-    managementFeeRate,
+    annualManagementFeeRate: PRODUCT_ANNUAL_MANAGEMENT_FEE_RATE,
     investorGrossEntitlementKrw,
     managementFeeKrw,
     investorNetEntitlementKrw,

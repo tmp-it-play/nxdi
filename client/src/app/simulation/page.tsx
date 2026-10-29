@@ -65,7 +65,7 @@ export default async function SimulationPage({ searchParams }: SimulationPagePro
         }
       />
 
-      <SectionHeader title="정책 적용 참고 예상액" description={`운용보수 ${formatPercent(policy.managementFeeRate)}를 반영하고 세금·외부 비용은 반영하지 않은 비구속적 가정값입니다.`} />
+      <SectionHeader title="정책 적용 참고 예상액" description={`연 운용보수율 ${formatPercent(policy.annualManagementFeeRate)}를 월 환산해 배분액 한도에서 공제한 비구속적 가정값입니다. 변경 정책은 2026/11/01부터 적용됩니다. 세금·외부 비용은 반영하지 않습니다.`} />
 
       <Grid columns={2}>
         <CtaPanel>

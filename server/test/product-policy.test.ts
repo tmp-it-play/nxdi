@@ -13,7 +13,7 @@ describe("ProductPolicyDto", () => {
           maxInvestmentKrw: 1_000_000,
           externalInvestmentLimitRate: 0.5,
           companyDividendTransferRate: 0.2,
-          managementFeeRate: 0.05,
+          annualManagementFeeRate: 0.003,
           annualInvestorDividendCapRate: 0.18,
           monthlyInvestorDividendCapRate: 0.18 / 12
         });

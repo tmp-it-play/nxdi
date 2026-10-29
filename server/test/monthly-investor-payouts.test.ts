@@ -19,7 +19,7 @@ function modes(byUser: Record<string, PayoutMode>) {
 function row(overrides: Partial<MonthlyInvestorPayoutRow> = {}): MonthlyInvestorPayoutRow {
   return {
     dividendMonth: "2026-08", userId: "user-1", payoutMode: "MONTHLY_CASH",
-    eligiblePrincipalKrw: 100_000, cashPayoutKrw: 1_425, totalReturnAccrualKrw: 0, ...overrides
+    eligiblePrincipalKrw: 100_000, cashPayoutKrw: 1_475, totalReturnAccrualKrw: 0, ...overrides
   };
 }
 
@@ -41,7 +41,7 @@ describe("Given one monthly cash investor and one total-return investor with equ
     it("Then the cash investor receives the capped cash amount and only a notional reinvestment", () => {
       assert.equal(cash.payoutMode, "MONTHLY_CASH");
       assert.equal(cash.allocationKrw, 750);
-      assert.equal(cash.reinvestmentKrw, 4_000);
+      assert.equal(cash.reinvestmentKrw, 4_237.5);
       assert.equal(cash.totalReturnAccrualKrw, 0);
     });
 
@@ -49,7 +49,7 @@ describe("Given one monthly cash investor and one total-return investor with equ
       assert.equal(totalReturn.payoutMode, "TOTAL_RETURN");
       assert.equal(totalReturn.allocationKrw, 0);
       assert.equal(totalReturn.reinvestmentKrw, 0);
-      assert.equal(totalReturn.totalReturnAccrualKrw, 4_750);
+      assert.equal(totalReturn.totalReturnAccrualKrw, 4_987.5);
       assert.equal(totalReturn.managementFeeKrw, cash.managementFeeKrw);
     });
   });
@@ -114,8 +114,8 @@ describe("Given recorded months and a payout ledger", () => {
 
     it("Then unbooked months apply the current total-return mode and compound the accruals", () => {
       assert.deepEqual(rows.slice(1), [
-        row({ dividendMonth: "2026-09", payoutMode: "TOTAL_RETURN", cashPayoutKrw: 0, totalReturnAccrualKrw: 1_425 }),
-        row({ dividendMonth: "2026-10", payoutMode: "TOTAL_RETURN", eligiblePrincipalKrw: 101_425, cashPayoutKrw: 0, totalReturnAccrualKrw: 1_445 })
+        row({ dividendMonth: "2026-09", payoutMode: "TOTAL_RETURN", cashPayoutKrw: 0, totalReturnAccrualKrw: 1_475 }),
+        row({ dividendMonth: "2026-10", payoutMode: "TOTAL_RETURN", eligiblePrincipalKrw: 101_475, cashPayoutKrw: 0, totalReturnAccrualKrw: 1_497 })
       ]);
     });
   });

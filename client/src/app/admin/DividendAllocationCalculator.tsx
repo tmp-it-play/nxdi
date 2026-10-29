@@ -27,7 +27,7 @@ type MonthlyDividendRecord = {
 
 type DividendAllocationCalculatorProps = {
   companyDividendTransferRate: number;
-  managementFeeRate: number;
+  annualManagementFeeRate: number;
   principalsByMonth: Record<string, DividendAllocationIntent[]>;
   monthlyDividendRecords: MonthlyDividendRecord[];
   defaultDividendMonth: string;
@@ -47,7 +47,7 @@ function formatPercent(value: number) {
 
 export function DividendAllocationCalculator({
   companyDividendTransferRate,
-  managementFeeRate,
+  annualManagementFeeRate,
   principalsByMonth,
   monthlyDividendRecords,
   defaultDividendMonth,
@@ -79,7 +79,7 @@ export function DividendAllocationCalculator({
     investorPrincipalKrw,
     totalMarketValueKrw,
     companyDividendTransferRate,
-    managementFeeRate,
+    annualManagementFeeRate,
     monthlyInvestorDividendCapRate
   });
   const isTotalReturn = selectedIntent?.payoutMode === "TOTAL_RETURN";
@@ -151,7 +151,7 @@ export function DividendAllocationCalculator({
           <strong>{formatKrw(allocation.companyTransferredDividendKrw)}</strong>
         </div>
         <div>
-          <span>운용보수</span>
+          <span>전체 운용보수</span>
           <strong>{formatKrw(allocation.managementFeeKrw)}</strong>
         </div>
         <div>
@@ -169,6 +169,10 @@ export function DividendAllocationCalculator({
         <div>
           <span>선택 투자자 비율</span>
           <strong>{formatPercent(allocation.selectedInvestorWeight)}</strong>
+        </div>
+        <div>
+          <span>선택 투자자 운용보수</span>
+          <strong>{formatKrw(allocation.selectedManagementFeeKrw)}</strong>
         </div>
         {isTotalReturn ? (
           <div>
@@ -216,7 +220,7 @@ export function DividendAllocationCalculator({
             <MutedText>
               상한 {formatPercent(allocation.monthlyInvestorDividendCapRate)} · 이전율{" "}
               {formatPercent(allocation.companyDividendTransferRate)} · 보수율{" "}
-              {formatPercent(allocation.managementFeeRate)}
+              {formatPercent(allocation.annualManagementFeeRate)} (연)
             </MutedText>
           </div>
           <MutedText>

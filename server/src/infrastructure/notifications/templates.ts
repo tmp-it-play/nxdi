@@ -1,7 +1,7 @@
 import type { Disclosure, PortfolioOverview } from "../../domain/types.js";
 import type { MonthlyPayoutRecipient, RenderedEmail } from "../../domain/notifications/index.js";
 
-export const TEMPLATE_VERSION = "3";
+export const TEMPLATE_VERSION = "4";
 
 type TemplateOptions = { correctionReason?: string };
 
@@ -117,7 +117,7 @@ export function renderMonthlyPayoutEmail(input: MonthlyPayoutEmailInput): Render
     ["지급 방식", "월 현금 지급"],
     ["배당 적격 투자금액", won(recipient.investmentKrw)],
     ["현금 지급 안내액", won(recipient.displayedKrw)],
-    ["관리 보수", won(recipient.managementFeeKrw)],
+    ["운용보수", won(recipient.managementFeeKrw)],
     ["재투자액", won(recipient.reinvestmentKrw)],
     ["계산 일시", timestamp(input.calculatedAt)]
   ];
@@ -137,7 +137,7 @@ function renderTotalReturnPayoutEmail(input: MonthlyPayoutEmailInput): RenderedE
     ["지급 방식", "토탈 리턴"],
     ["배당 적격 투자금액", won(recipient.investmentKrw)],
     ["원금 편입 안내액", won(recipient.totalReturnAccrualKrw)],
-    ["관리 보수", won(recipient.managementFeeKrw)],
+    ["운용보수", won(recipient.managementFeeKrw)],
     ["계산 일시", timestamp(input.calculatedAt)]
   ];
   const note = "토탈 리턴 방식은 배분액을 현금으로 송금하지 않고 다음 달부터 배당 적격 잔액에 편입합니다. 전월 실배당과 해당 월의 배당 적격 잔액으로 계산한 참고 금액이며, 원 단위 표시는 개인별 계산액을 반올림한 값입니다.";

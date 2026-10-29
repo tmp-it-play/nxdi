@@ -18,9 +18,9 @@ describe("DividendAllocationPolicy", () => {
         });
         assert.equal(result.investorBaseDividendKrw, 120);
         assert.equal(result.companyTransferredDividendKrw, 176);
-        assert.equal(result.managementFeeKrw, 14.8);
-        assert.equal(result.investorDistributionPoolKrw, 281.2);
-        assert.equal(result.allocationKrw, 140.6);
+        assert.equal(result.managementFeeKrw, 30);
+        assert.equal(result.investorDistributionPoolKrw, 266);
+        assert.equal(result.allocationKrw, 133);
       });
     });
   });
@@ -48,16 +48,49 @@ describe("DividendAllocationPolicy", () => {
         }) as unknown as Record<string, number>;
 
         assert.equal(result.investorBaseDividendKrw, 16_000);
-        assert.equal(result.managementFeeKrw, 800);
+        assert.equal(result.managementFeeKrw, 250);
         assert.equal(result.investorDistributionPoolKrw, 15_000);
-        assert.equal(result.investorReinvestmentPoolKrw, 200);
-        assert.equal(result.companyRetainedDividendKrw, 4_800);
+        assert.equal(result.investorReinvestmentPoolKrw, 750);
+        assert.equal(result.companyRetainedDividendKrw, 4_250);
         assert.equal(
           result.investorDistributionPoolKrw +
             result.investorReinvestmentPoolKrw +
             result.companyRetainedDividendKrw,
           result.actualDividendKrw
         );
+      });
+    });
+  });
+
+  describe("Given a 20,000 won eligible investor balance", () => {
+    const input = {
+      selectedInvestmentKrw: 20_000,
+      investorPrincipalKrw: 20_000,
+      totalMarketValueKrw: 20_000
+    };
+
+    describe("When the gross monthly allocation is 300 won", () => {
+      it("Then it deducts five won under the annual 0.3 percent fee", () => {
+        const result = calculateDividendAllocation({ ...input, actualDividendKrw: 300 });
+        assert.equal(result.managementFeeKrw, 5);
+        assert.equal(result.allocationKrw, 295);
+      });
+    });
+
+    describe("When the gross allocation is below the monthly fee", () => {
+      it("Then it uses only that allocation as the fee and pays zero without a shortfall", () => {
+        const result = calculateDividendAllocation({ ...input, actualDividendKrw: 3 });
+        assert.equal(result.managementFeeKrw, 3);
+        assert.equal(result.allocationKrw, 0);
+        assert.equal(result.investorNetEntitlementKrw, 0);
+      });
+    });
+
+    describe("When there is no actual dividend", () => {
+      it("Then it charges no fee", () => {
+        const result = calculateDividendAllocation({ ...input, actualDividendKrw: 0 });
+        assert.equal(result.managementFeeKrw, 0);
+        assert.equal(result.allocationKrw, 0);
       });
     });
   });

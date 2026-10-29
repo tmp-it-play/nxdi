@@ -127,7 +127,7 @@ describe("Given a monthly payout uses historical dividend eligibility and withdr
       assert.equal(result.recipients.length, 1);
       assert.equal(result.recipients[0]?.investmentKrw, 30_000);
       assert.equal(result.investorPrincipalKrw, 30_000);
-      assert.equal(result.recipients[0]?.displayedKrw, 428);
+      assert.equal(result.recipients[0]?.displayedKrw, 443);
     });
   });
 
@@ -177,8 +177,8 @@ describe("Given a user's allocation spans multiple investment intents", () => {
       assert.equal(result.recipients[0]?.displayedKrw, 1);
       assert.equal(result.recipients[0]?.investmentKrw, 70);
       assert.equal(result.displayedTotalKrw, 2);
-      assert.ok(Math.abs(result.unroundedTotalKrw - 1.995) < 1e-10);
-      assert.ok(Math.abs(result.roundingDifferenceKrw - 0.005) < 1e-10);
+      assert.ok(Math.abs(result.unroundedTotalKrw - 2.065) < 1e-10);
+      assert.ok(Math.abs(result.roundingDifferenceKrw + 0.065) < 1e-10);
     });
   });
 });

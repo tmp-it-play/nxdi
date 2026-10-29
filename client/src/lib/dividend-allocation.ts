@@ -4,7 +4,7 @@ export type DividendAllocationInput = {
   investorPrincipalKrw: number;
   totalMarketValueKrw: number;
   companyDividendTransferRate: number;
-  managementFeeRate: number;
+  annualManagementFeeRate: number;
   monthlyInvestorDividendCapRate: number;
 };
 
@@ -28,7 +28,7 @@ export function calculateDividendAllocation(input: DividendAllocationInput) {
   const monthlyInvestorDividendCapRate = cappedRate(
     input.monthlyInvestorDividendCapRate
   );
-  const managementFeeRate = cappedRate(input.managementFeeRate);
+  const annualManagementFeeRate = cappedRate(input.annualManagementFeeRate);
 
   const companyPrincipalKrw = Math.max(totalMarketValueKrw - investorPrincipalKrw, 0);
   const dividendBaseKrw = investorPrincipalKrw + companyPrincipalKrw;
@@ -47,7 +47,10 @@ export function calculateDividendAllocation(input: DividendAllocationInput) {
     investorBaseDividendKrw + companyTransferredDividendKrw,
     actualDividendKrw
   );
-  const managementFeeKrw = investorGrossEntitlementKrw * managementFeeRate;
+  const managementFeeKrw = Math.min(
+    investorGrossEntitlementKrw,
+    investorPrincipalKrw * annualManagementFeeRate / 12
+  );
   const investorNetEntitlementKrw = Math.max(investorGrossEntitlementKrw - managementFeeKrw, 0);
   const investorDistributionPoolKrw = Math.min(
     investorNetEntitlementKrw,
@@ -76,7 +79,7 @@ export function calculateDividendAllocation(input: DividendAllocationInput) {
     companyTransferNeedKrw,
     companyTransferLimitKrw,
     companyTransferredDividendKrw,
-    managementFeeRate,
+    annualManagementFeeRate,
     investorGrossEntitlementKrw,
     managementFeeKrw,
     investorNetEntitlementKrw,

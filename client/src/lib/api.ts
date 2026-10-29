@@ -140,7 +140,7 @@ export type ProductPolicyDto = {
   maxInvestmentKrw: number;
   externalInvestmentLimitRate: number;
   companyDividendTransferRate: number;
-  managementFeeRate: number;
+  annualManagementFeeRate: number;
   annualInvestorDividendCapRate: number;
   monthlyInvestorDividendCapRate: number;
 };
