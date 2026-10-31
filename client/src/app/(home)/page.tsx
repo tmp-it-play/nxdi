@@ -235,7 +235,7 @@ export default async function Home() {
                       <RiskBadge level={holding.riskLevel} />
                     </span>
                   }
-                  description={`${secondaryLabel ? `${secondaryLabel} · ` : ""}${formatNumber(holding.quantity, 4)}주 · 원화 보유 수익률 ${formatPercent(holding.profitLossRate)}`}
+                  description={`${secondaryLabel ? `${secondaryLabel} · ` : ""}${formatNumber(holding.quantity, 4)}주`}
                   value={
                     <div className="holding-row-value">
                       <TextLink className="chart-link" href={href}>
