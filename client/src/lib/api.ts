@@ -126,6 +126,7 @@ export type MetricResponse = {
   totalMarketValueKrw: number;
   portfolioDividend: PortfolioDividendSummary;
   candles: MarketCandle[];
+  weeklyCandles?: MarketCandle[];
   currentRate?: number;
 };
 

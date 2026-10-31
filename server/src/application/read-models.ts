@@ -237,7 +237,7 @@ export const METRIC_SLUGS = ["daily-change", "holding-return", "dividend-yield"]
 export type MetricSlug = typeof METRIC_SLUGS[number];
 
 export async function metricReadModel(metric: MetricSlug) {
-  const portfolio = await getManualPortfolioOverview();
+  const portfolio = await getManualPortfolioOverview({ includeObservations: true });
   const [portfolioDividend, monthlyDividendRecords, dailyCharts] = await Promise.all([
     summarizePortfolioDividend(portfolio),
     metric === "dividend-yield" ? readMonthlyDividendRecords() : Promise.resolve([]),
@@ -246,16 +246,15 @@ export async function metricReadModel(metric: MetricSlug) {
       : Promise.resolve({})
   ]);
   const dailyChartMap = new Map<string, MarketChart | null>(Object.entries(dailyCharts));
-  const candles = metric === "holding-return"
-    ? returnCandlesFromSnapshots(portfolio.dailySnapshots)
-    : metric === "dividend-yield"
-      ? monthlyDividendYieldCandlesFromSnapshots(
-          portfolio.dailySnapshots,
-          monthlyDividendRecords,
-          portfolioDividend.annualDividendKrw,
-          portfolio.totalMarketValueKrw
-        )
-      : candlesFromSnapshots(portfolio.dailySnapshots);
+  const snapshotCandles = metric === "holding-return" ? returnCandlesFromSnapshots : candlesFromSnapshots;
+  const candles = metric === "dividend-yield"
+    ? monthlyDividendYieldCandlesFromSnapshots(
+        portfolio.dailySnapshots,
+        monthlyDividendRecords,
+        portfolioDividend.annualDividendKrw,
+        portfolio.totalMarketValueKrw
+      )
+    : snapshotCandles(portfolio.dailySnapshots);
   const currentRate = metric === "holding-return"
     ? portfolioDividend.totalReturnRate
     : metric === "dividend-yield"
@@ -271,6 +270,7 @@ export async function metricReadModel(metric: MetricSlug) {
     totalMarketValueKrw: portfolio.totalMarketValueKrw,
     portfolioDividend,
     candles,
+    weeklyCandles: metric === "dividend-yield" ? undefined : snapshotCandles(portfolio.dailySnapshots, "week"),
     currentRate
   };
 }

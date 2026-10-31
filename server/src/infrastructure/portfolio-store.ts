@@ -115,6 +115,12 @@ function toPortfolioDailySnapshot(row: {
   closeExchangeRate: number | null;
   closeCostBasisKrw: number | null;
   closeAnnualDividendKrw: number | null;
+  observations?: {
+    observedAt: Date;
+    totalMarketValueKrw: number;
+    costBasisKrw: number | null;
+    annualDividendKrw: number | null;
+  }[];
   closedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -129,6 +135,12 @@ function toPortfolioDailySnapshot(row: {
     closeExchangeRate: row.closeExchangeRate ?? undefined,
     closeCostBasisKrw: row.closeCostBasisKrw ?? undefined,
     closeAnnualDividendKrw: row.closeAnnualDividendKrw ?? undefined,
+    observations: row.observations?.map((observation) => ({
+      observedAt: observation.observedAt.toISOString(),
+      totalMarketValueKrw: observation.totalMarketValueKrw,
+      costBasisKrw: observation.costBasisKrw ?? undefined,
+      annualDividendKrw: observation.annualDividendKrw ?? undefined
+    })),
     closedAt: row.closedAt?.toISOString(),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString()
@@ -148,22 +160,24 @@ async function upsertPortfolioDailySnapshot({
   costBasisKrw?: number;
   annualDividendKrw?: number;
 }) {
-  await prisma.portfolioDailySnapshot.upsert({
-    where: { snapshotDate },
-    create: {
-      snapshotDate,
-      totalMarketValueKrw,
+  const valuation = {
+    totalMarketValueKrw,
+    costBasisKrw: costBasisKrw ?? null,
+    annualDividendKrw: annualDividendKrw ?? null
+  };
+  const locked = await withMysqlNamedLock(`nxdi:snapshot:${snapshotDate}`, async () => {
+    const values = {
+      ...valuation,
       exchangeRate,
-      costBasisKrw: costBasisKrw ?? null,
-      annualDividendKrw: annualDividendKrw ?? null
-    },
-    update: {
-      totalMarketValueKrw,
-      exchangeRate,
-      costBasisKrw: costBasisKrw ?? null,
-      annualDividendKrw: annualDividendKrw ?? null
-    }
-  });
+      observations: { create: { ...valuation, observedAt: new Date() } }
+    };
+    await prisma.portfolioDailySnapshot.upsert({
+      where: { snapshotDate },
+      create: { snapshotDate, ...values },
+      update: values
+    });
+  }, 5);
+  if (!locked.acquired) throw new Error(`Could not acquire snapshot lock: ${snapshotDate}`);
 }
 
 export async function finalizePortfolioDailySnapshot(snapshotDate = portfolioSnapshotDate()) {
@@ -192,10 +206,11 @@ export async function finalizePortfolioDailySnapshot(snapshotDate = portfolioSna
   return locked.value;
 }
 
-async function readPortfolioDailySnapshots(limit = DAILY_SNAPSHOT_LIMIT) {
+async function readPortfolioDailySnapshots(includeObservations: boolean) {
   const rows = await prisma.portfolioDailySnapshot.findMany({
     orderBy: { snapshotDate: "desc" },
-    take: limit
+    take: DAILY_SNAPSHOT_LIMIT,
+    include: { observations: includeObservations && { orderBy: { id: "asc" } } }
   });
 
   return rows
@@ -353,10 +368,10 @@ export async function finalizePreviousPortfolioDailySnapshot(date = new Date()) 
   };
 }
 
-export async function getManualPortfolioOverview(): Promise<PortfolioOverview> {
+export async function getManualPortfolioOverview({ includeObservations = false } = {}): Promise<PortfolioOverview> {
   const [store, dailySnapshots] = await Promise.all([
     readManualPortfolioStore(),
-    readPortfolioDailySnapshots()
+    readPortfolioDailySnapshots(includeObservations)
   ]);
   const totalMarketValueKrw = store.holdings.reduce((sum, holding) => sum + holding.marketValueKrw, 0);
 

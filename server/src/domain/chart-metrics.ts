@@ -2,7 +2,8 @@ import type {
   Holding,
   MarketCode,
   MonthlyDividendRecord,
-  PortfolioDailySnapshot
+  PortfolioDailySnapshot,
+  PortfolioValuation
 } from "./types.js";
 import { candleExchangeRates, type ExchangeRatePoint } from "./holding-cost.js";
 
@@ -107,39 +108,86 @@ export function pointsFromCandles(candles: MarketCandle[]) {
 
 export function pointsFromSnapshots(snapshots: PortfolioDailySnapshot[]) {
   return snapshots.flatMap((snapshot, index) => {
-    const value = snapshotEffectiveTotalMarketValueKrw(snapshot, index, snapshots);
-    return typeof value === "number" ? [{ date: snapshot.date, value }] : [];
+    const valuation = effectiveValuation(snapshot, isLatestSnapshot(index, snapshots));
+    return valuation ? [{ date: snapshot.date, value: valuation.totalMarketValueKrw }] : [];
   });
 }
 
-export function candlesFromSnapshots(snapshots: PortfolioDailySnapshot[]) {
-  return candlesFromPoints(pointsFromSnapshots(snapshots));
+type SnapshotPeriod = "day" | "week";
+
+function weekStart(date: string) {
+  const day = new Date(`${date}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() - (day.getUTCDay() + 6) % 7);
+  return day.toISOString().slice(0, 10);
+}
+
+function candleFromObservations(date: string, observations: number[], close: number, previousClose?: number): MarketCandle {
+  const open = observations[0] ?? previousClose ?? close;
+  let high = Math.max(open, close);
+  let low = Math.min(open, close);
+  for (const value of observations) {
+    high = Math.max(high, value);
+    low = Math.min(low, value);
+  }
+  return { date, open, high, low, close };
+}
+
+function effectiveValuation(snapshot: PortfolioDailySnapshot, latest: boolean): PortfolioValuation | undefined {
+  if (latest) return snapshot;
+  if (snapshot.closeTotalMarketValueKrw === undefined) return undefined;
+  return {
+    totalMarketValueKrw: snapshot.closeTotalMarketValueKrw,
+    costBasisKrw: snapshot.closeCostBasisKrw,
+    annualDividendKrw: snapshot.closeAnnualDividendKrw
+  };
+}
+
+function observationsThroughClose(snapshot: PortfolioDailySnapshot, latest: boolean) {
+  const observations = snapshot.observations ?? [];
+  const cutoff = latest ? undefined : snapshot.closedAt;
+  return cutoff ? observations.filter((sample) => sample.observedAt <= cutoff) : observations;
+}
+
+function snapshotCandles(
+  snapshots: PortfolioDailySnapshot[],
+  period: SnapshotPeriod,
+  metricValue: (valuation: PortfolioValuation) => number | undefined
+) {
+  const candles: MarketCandle[] = [];
+  for (const [index, snapshot] of snapshots.entries()) {
+    const latest = isLatestSnapshot(index, snapshots);
+    const valuation = effectiveValuation(snapshot, latest);
+    const close = valuation && metricValue(valuation);
+    if (close === undefined) continue;
+    const values = observationsThroughClose(snapshot, latest).map(metricValue).filter((value) => value !== undefined);
+    const previous = candles.at(-1);
+    const date = period === "week" ? weekStart(snapshot.date) : snapshot.date;
+    const candle = candleFromObservations(date, values, close, period === "day" ? previous?.close : undefined);
+    if (previous?.date === date) {
+      previous.high = Math.max(previous.high, candle.high);
+      previous.low = Math.min(previous.low, candle.low);
+      previous.close = close;
+    } else {
+      candles.push(candle);
+    }
+  }
+  return candles;
+}
+
+export function candlesFromSnapshots(snapshots: PortfolioDailySnapshot[], period: SnapshotPeriod = "day") {
+  return snapshotCandles(snapshots, period, (sample) => sample.totalMarketValueKrw);
 }
 
 function candlesFromPoints(points: ChartPoint[]) {
-  return points.map((point, index) => {
-    const open = points[index - 1]?.value ?? point.value;
-
-    return {
-      date: point.date,
-      open,
-      high: Math.max(open, point.value),
-      low: Math.min(open, point.value),
-      close: point.value
-    };
-  });
+  return points.map((point, index) =>
+    candleFromObservations(point.date, [], point.value, points[index - 1]?.value)
+  );
 }
 
-export function returnCandlesFromSnapshots(snapshots: PortfolioDailySnapshot[]) {
-  const points = snapshots.flatMap((snapshot, index) => {
-    const costBasisKrw = snapshotEffectiveCostBasisKrw(snapshot, index, snapshots);
-    if (typeof costBasisKrw !== "number" || costBasisKrw <= 0) return [];
-    const totalMarketValueKrw = snapshotEffectiveTotalMarketValueKrw(snapshot, index, snapshots);
-    if (typeof totalMarketValueKrw !== "number") return [];
-    return [{ date: snapshot.date, value: (totalMarketValueKrw - costBasisKrw) / costBasisKrw }];
-  });
-
-  return candlesFromPoints(points);
+export function returnCandlesFromSnapshots(snapshots: PortfolioDailySnapshot[], period: SnapshotPeriod = "day") {
+  return snapshotCandles(snapshots, period, ({ totalMarketValueKrw, costBasisKrw }) =>
+    costBasisKrw !== undefined && costBasisKrw > 0 ? (totalMarketValueKrw - costBasisKrw) / costBasisKrw : undefined
+  );
 }
 
 function monthlyDividendRecordsByMonth(records: MonthlyDividendRecord[]) {
@@ -155,22 +203,17 @@ export function dividendYieldCandlesFromSnapshots(
   const usesMonthlyDividendRecords = monthlyDividendRecords.length > 0;
 
   const points = snapshots.flatMap((snapshot, index) => {
+    const latest = isLatestSnapshot(index, snapshots);
+    const valuation = effectiveValuation(snapshot, latest);
+    if (!valuation || valuation.totalMarketValueKrw <= 0) return [];
     const dividendKrw =
-      isLatestSnapshot(index, snapshots) && typeof currentMonthEstimatedDividendKrw === "number"
+      latest && typeof currentMonthEstimatedDividendKrw === "number"
         ? currentMonthEstimatedDividendKrw
         : usesMonthlyDividendRecords
           ? actualRecordsByMonth.get(snapshot.date.slice(0, 7))?.actualDividendKrw
-          : snapshotEffectiveAnnualDividendKrw(snapshot, index, snapshots);
-    const totalMarketValueKrw = snapshotEffectiveTotalMarketValueKrw(snapshot, index, snapshots);
-    if (
-      typeof dividendKrw !== "number" ||
-      dividendKrw <= 0 ||
-      typeof totalMarketValueKrw !== "number" ||
-      totalMarketValueKrw <= 0
-    ) {
-      return [];
-    }
-    return [{ date: snapshot.date, value: dividendKrw / totalMarketValueKrw }];
+          : valuation.annualDividendKrw;
+    if (typeof dividendKrw !== "number" || dividendKrw <= 0) return [];
+    return [{ date: snapshot.date, value: dividendKrw / valuation.totalMarketValueKrw }];
   });
 
   return candlesFromPoints(points);
@@ -181,11 +224,11 @@ function monthDate(month: string) {
 }
 
 function currentMonthKey(date = new Date()) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  return new Date(date.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 7);
 }
 
 export function monthlyDividendYieldCandlesFromSnapshots(
-  _snapshots: PortfolioDailySnapshot[],
+  snapshots: PortfolioDailySnapshot[],
   monthlyDividendRecords: MonthlyDividendRecord[] = [],
   currentAnnualEstimatedDividendKrw?: number,
   currentMarketValueKrw?: number,
@@ -193,7 +236,8 @@ export function monthlyDividendYieldCandlesFromSnapshots(
 ) {
   const records = [...monthlyDividendRecords]
     .sort((a, b) => a.dividendMonth.localeCompare(b.dividendMonth));
-  const points = records.flatMap((record, index) => {
+  const months: { month: string; close: number; actualAnnualDividend?: number; yields: number[] }[] = [];
+  for (const [index, record] of records.entries()) {
     const trailingRecords = records.slice(Math.max(0, index - 11), index + 1);
     const actualDividendKrw =
       trailingRecords.reduce((sum, item) => sum + item.actualDividendKrw, 0) *
@@ -204,10 +248,15 @@ export function monthlyDividendYieldCandlesFromSnapshots(
       typeof totalMarketValueKrw !== "number" ||
       totalMarketValueKrw <= 0
     ) {
-      return [];
+      continue;
     }
-    return [{ date: monthDate(record.dividendMonth), value: actualDividendKrw / totalMarketValueKrw }];
-  });
+    months.push({
+      month: record.dividendMonth,
+      close: actualDividendKrw / totalMarketValueKrw,
+      actualAnnualDividend: actualDividendKrw,
+      yields: []
+    });
+  }
 
   if (
     typeof currentAnnualEstimatedDividendKrw === "number" &&
@@ -217,45 +266,35 @@ export function monthlyDividendYieldCandlesFromSnapshots(
   ) {
     const latestHistoricalMonth = records.at(-1)?.dividendMonth;
     if (latestHistoricalMonth !== currentMonth) {
-      points.push({
-        date: monthDate(currentMonth),
-        value: currentAnnualEstimatedDividendKrw / currentMarketValueKrw
+      months.push({
+        month: currentMonth,
+        close: currentAnnualEstimatedDividendKrw / currentMarketValueKrw,
+        yields: []
       });
     }
   }
 
-  return candlesFromPoints(points);
+  const byMonth = new Map(months.map((item) => [item.month, item]));
+  for (const [index, snapshot] of snapshots.entries()) {
+    const month = byMonth.get(snapshot.date.slice(0, 7));
+    if (!month) continue;
+    const latest = month.month === currentMonth && month.actualAnnualDividend === undefined && isLatestSnapshot(index, snapshots);
+    const close = effectiveValuation(snapshot, latest);
+    if (!close) continue;
+    for (const sample of [...observationsThroughClose(snapshot, latest), close]) {
+      const annualDividend = month.actualAnnualDividend ?? sample.annualDividendKrw;
+      if (annualDividend !== undefined && annualDividend >= 0 && sample.totalMarketValueKrw > 0) {
+        month.yields.push(annualDividend / sample.totalMarketValueKrw);
+      }
+    }
+  }
+  return months.map(({ month, yields, close }, index) =>
+    candleFromObservations(monthDate(month), yields, close, months[index - 1]?.close)
+  );
 }
 
 function isLatestSnapshot(index: number, snapshots: PortfolioDailySnapshot[]) {
   return index === snapshots.length - 1;
-}
-
-function snapshotEffectiveTotalMarketValueKrw(
-  snapshot: PortfolioDailySnapshot,
-  index: number,
-  snapshots: PortfolioDailySnapshot[]
-) {
-  if (isLatestSnapshot(index, snapshots)) return snapshot.totalMarketValueKrw;
-  return snapshot.closeTotalMarketValueKrw;
-}
-
-function snapshotEffectiveCostBasisKrw(
-  snapshot: PortfolioDailySnapshot,
-  index: number,
-  snapshots: PortfolioDailySnapshot[]
-) {
-  if (isLatestSnapshot(index, snapshots)) return snapshot.costBasisKrw;
-  return snapshot.closeCostBasisKrw;
-}
-
-function snapshotEffectiveAnnualDividendKrw(
-  snapshot: PortfolioDailySnapshot,
-  index: number,
-  snapshots: PortfolioDailySnapshot[]
-) {
-  if (isLatestSnapshot(index, snapshots)) return snapshot.annualDividendKrw;
-  return snapshot.closeAnnualDividendKrw;
 }
 
 export function aggregatePortfolioCandles({

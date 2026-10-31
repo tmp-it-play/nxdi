@@ -115,12 +115,16 @@ export type PortfolioOverview = {
   holdings: Holding[];
 };
 
-export type PortfolioDailySnapshot = {
-  date: string;
+export type PortfolioValuation = {
   totalMarketValueKrw: number;
-  exchangeRate: number;
   costBasisKrw?: number;
   annualDividendKrw?: number;
+};
+
+export type PortfolioDailySnapshot = PortfolioValuation & {
+  date: string;
+  exchangeRate: number;
+  observations?: (PortfolioValuation & { observedAt: string })[];
   closeTotalMarketValueKrw?: number;
   closeExchangeRate?: number;
   closeCostBasisKrw?: number;

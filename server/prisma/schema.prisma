@@ -40,6 +40,7 @@ model PortfolioDailySnapshot {
   closeExchangeRate        Float?
   closeCostBasisKrw        Float?
   closeAnnualDividendKrw   Float?
+  observations             PortfolioValuationObservation[]
   closedAt                 DateTime?
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
@@ -47,6 +48,19 @@ model PortfolioDailySnapshot {
   @@index([updatedAt])
   @@index([snapshotDate, closedAt])
   @@map("tb_portfolio_daily_snapshots")
+}
+
+model PortfolioValuationObservation {
+  id                  Int                    @id @default(autoincrement())
+  snapshotDate        String                 @map("snapshot_date") @db.VarChar(10)
+  snapshot            PortfolioDailySnapshot @relation(fields: [snapshotDate], references: [snapshotDate], onDelete: Cascade)
+  observedAt          DateTime               @default(now()) @map("observed_at")
+  totalMarketValueKrw Float                  @map("total_market_value_krw")
+  costBasisKrw        Float?                 @map("cost_basis_krw")
+  annualDividendKrw   Float?                 @map("annual_dividend_krw")
+
+  @@index([snapshotDate, id])
+  @@map("tb_portfolio_valuation_observations")
 }
 
 model DividendRecord {

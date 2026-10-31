@@ -13,7 +13,7 @@ import {
   samplePoints
 } from "../src/domain/chart-metrics.js";
 import type { MarketChart } from "../src/domain/chart-metrics.js";
-import type { Holding } from "../src/domain/types.js";
+import type { Holding, PortfolioDailySnapshot } from "../src/domain/types.js";
 
 function holding(overrides: Partial<Holding>): Holding {
   return {
@@ -42,6 +42,86 @@ function chart(overrides: Partial<MarketChart>): MarketChart {
     ...overrides
   };
 }
+
+function snapshot(date: string, value: number): PortfolioDailySnapshot {
+  const closedAt = `${date}T14:55:00.000Z`;
+  return {
+    date, totalMarketValueKrw: value, costBasisKrw: 100, exchangeRate: 1,
+    closeTotalMarketValueKrw: value, closeCostBasisKrw: 100,
+    createdAt: `${date}T00:00:00.000Z`, updatedAt: closedAt, closedAt
+  };
+}
+
+describe("Given portfolio valuations collected throughout a day", () => {
+  const day = snapshot("2026-10-05", 110);
+  day.observations = [
+    { observedAt: "2026-10-05T00:00:00.000Z", totalMarketValueKrw: 100, costBasisKrw: 100 },
+    { observedAt: "2026-10-05T01:00:00.000Z", totalMarketValueKrw: 180, costBasisKrw: 200 },
+    { observedAt: "2026-10-05T02:00:00.000Z", totalMarketValueKrw: 90, costBasisKrw: 50 },
+    { observedAt: "2026-10-05T03:00:00.000Z", totalMarketValueKrw: 120, costBasisKrw: 0 },
+    { observedAt: "2026-10-05T15:00:00.000Z", totalMarketValueKrw: 300, costBasisKrw: 10 }
+  ];
+  const history = [day, snapshot("2026-10-06", 125)];
+
+  describe("When the historical daily candle is built", () => {
+    it("Then its body uses the first observation and confirmed close, with wicks only through finalization", () => {
+      assert.deepEqual(candlesFromSnapshots(history)[0], {
+        date: day.date, open: 100, high: 180, low: 90, close: 110
+      });
+    });
+
+    it("Then each return uses the cost basis observed alongside its valuation", () => {
+      assert.deepEqual(returnCandlesFromSnapshots(history)[0], {
+        date: day.date, open: 0, high: 0.8, low: -0.1, close: 0.1
+      });
+    });
+  });
+});
+
+describe("Given only legacy daily closes across a year boundary", () => {
+  describe("When the dates are grouped into Monday-based weeks", () => {
+    it("Then both charts preserve each week's observed range and a single observation stays flat", () => {
+      const history = [
+        snapshot("2026-12-31", 100), snapshot("2027-01-01", 140), snapshot("2027-01-02", 80),
+        snapshot("2027-01-03", 110), snapshot("2027-01-04", 125)
+      ];
+      assert.deepEqual(candlesFromSnapshots(history, "week"), [
+        { date: "2026-12-28", open: 100, high: 140, low: 80, close: 110 },
+        { date: "2027-01-04", open: 125, high: 125, low: 125, close: 125 }
+      ]);
+      assert.deepEqual(returnCandlesFromSnapshots(history, "week")[0], {
+        date: "2026-12-28", open: 0, high: 0.4, low: -0.2, close: 0.1
+      });
+    });
+  });
+});
+
+describe("Given confirmed monthly dividends and current dividend estimates", () => {
+  describe("When monthly yield wicks are calculated from portfolio valuations", () => {
+    it("Then historical yields use the month's annualized payout and current yields use paired estimates", () => {
+      const current = snapshot("2026-11-01", 200);
+      current.annualDividendKrw = 20;
+      current.observations = [
+        { observedAt: "2026-11-01T01:00:00.000Z", totalMarketValueKrw: 100, annualDividendKrw: 20 },
+        { observedAt: "2026-11-01T02:00:00.000Z", totalMarketValueKrw: 0, annualDividendKrw: 20 },
+        { observedAt: "2026-11-01T03:00:00.000Z", totalMarketValueKrw: 100, annualDividendKrw: 30 },
+        { observedAt: "2026-11-01T04:00:00.000Z", totalMarketValueKrw: 100, annualDividendKrw: 5 }
+      ];
+      const history = [
+        snapshot("2026-10-01", 100), snapshot("2026-10-10", 200),
+        snapshot("2026-10-20", 50), current
+      ];
+      const candles = monthlyDividendYieldCandlesFromSnapshots(history, [{
+        dividendMonth: "2026-10", recordId: "october", actualDividendKrw: 1,
+        referenceMarketValueKrw: 120, createdAt: current.createdAt, updatedAt: current.updatedAt
+      }], 20, 200, "2026-11");
+      assert.deepEqual(candles, [
+        { date: "2026-10-01T00:00:00.000Z", open: 0.12, high: 0.24, low: 0.06, close: 0.1 },
+        { date: "2026-11-01T00:00:00.000Z", open: 0.2, high: 0.3, low: 0.05, close: 0.1 }
+      ]);
+    });
+  });
+});
 
 describe("Given portfolio holdings and market charts, when the daily change is calculated", () => {
   it("then uses current holding market value instead of the latest chart close", () => {

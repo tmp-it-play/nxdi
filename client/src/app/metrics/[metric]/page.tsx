@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { AuthNavActions } from "@/app/components/auth-actions";
-import { CandleChart } from "@/app/components/candle-chart";
+import { MetricChart } from "./MetricChart";
 import {
   AppShell,
   Grid,
@@ -94,14 +94,12 @@ export default async function MetricDetailPage({ params }: MetricDetailProps) {
         />
       </Grid>
 
-      <SectionHeader title="세부 차트" />
-
-      <CandleChart
+      <MetricChart
+        title={labels.title}
         candles={candles}
-        label={`${labels.title} 세부 차트`}
-        size="detail"
+        weeklyCandles={result.weeklyCandles}
+        monthly={metric === "dividend-yield"}
         valueFormat={valueFormat}
-        dateGranularity={metric === "dividend-yield" ? "month" : "day"}
       />
 
       <SectionHeader title="계산 기준" description="관리자 포트폴리오, 시장 가격, 일별 평가금액 스냅샷을 조합한 값입니다." />
