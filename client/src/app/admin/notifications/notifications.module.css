@@ -27,8 +27,7 @@
 .table td .error { max-width: 240px; }
 .table button { min-height: 36px; }
 .empty { color: var(--muted); height: 100px; text-align: center; }
-.pagination, .row { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
-.pagination { color: var(--muted); font-size: 13px; margin-top: 20px; }
+.row { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
 .delivery { border: 1px solid var(--line); border-radius: var(--tds-radius-md); margin-top: 20px; padding: 20px; }
 .delivery > button, .delivery > form { margin-top: 16px; }
 .attemptHistory { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 16px; }

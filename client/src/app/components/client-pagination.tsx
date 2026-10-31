@@ -30,13 +30,15 @@ function matchesSearch(text: string, query: string) {
   return terms.every((term) => normalizedText.includes(term));
 }
 
-function PaginationControls({
+export function PaginationControls({
+  disabled = false,
   label,
   page,
   pageSize,
   totalItems,
   onPageChange
 }: {
+  disabled?: boolean;
   label: string;
   page: number;
   pageSize: number;
@@ -57,10 +59,9 @@ function PaginationControls({
       </p>
       <div className="pagination-controls">
         <button
-          aria-disabled={page === 1}
           aria-label="이전 페이지"
           className={cx("pagination-button icon", page === 1 && "disabled")}
-          disabled={page === 1}
+          disabled={disabled || page === 1}
           type="button"
           onClick={() => onPageChange(Math.max(1, page - 1))}
         >
@@ -74,6 +75,7 @@ function PaginationControls({
               {hasGap ? <span className="pagination-ellipsis">...</span> : null}
               <button
                 aria-current={item === page ? "page" : undefined}
+                disabled={disabled}
                 className={cx("pagination-button", item === page && "active")}
                 type="button"
                 onClick={() => onPageChange(item)}
@@ -84,10 +86,9 @@ function PaginationControls({
           );
         })}
         <button
-          aria-disabled={page === totalPages}
           aria-label="다음 페이지"
           className={cx("pagination-button icon", page === totalPages && "disabled")}
-          disabled={page === totalPages}
+          disabled={disabled || page === totalPages}
           type="button"
           onClick={() => onPageChange(Math.min(totalPages, page + 1))}
         >

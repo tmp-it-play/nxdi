@@ -9,6 +9,7 @@ import { addDeliveries, json, lockEvent, refreshEventStatus, requireCondition, t
 
 const object = (value: Prisma.JsonValue | null) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 const pendingStatuses = ["FAILED", "RETRY_WAIT"];
+const NOTIFICATIONS_PAGE_SIZE = 8;
 function summary(event: NotificationEvent, statuses: string[]) {
   return { id: event.id, type: event.type, mode: event.mode, status: event.status, periodKey: event.period ?? "", version: event.revision,
     reason: event.reason, createdAt: event.createdAt.toISOString(), updatedAt: event.updatedAt.toISOString(),
@@ -21,11 +22,18 @@ function draftRecipients(event: NotificationEvent) {
 }
 export async function listNotifications(query: { mode?: string; type?: string; status?: string; period?: string; page: number }) {
   const where: Prisma.NotificationEventWhereInput = { mode: query.mode, type: query.type, status: query.status, period: query.period };
-  const [events, total] = await Promise.all([
-    prisma.notificationEvent.findMany({ where, orderBy: { createdAt: "desc" }, skip: (query.page - 1) * 20, take: 20, include: { deliveries: { select: { status: true } } } }),
-    prisma.notificationEvent.count({ where })
-  ]);
-  return { items: events.map((e) => summary(e, e.deliveries.map((d) => d.status))), total, page: query.page, pageSize: 20 };
+  return prisma.$transaction(async (db) => {
+    const total = await db.notificationEvent.count({ where });
+    const page = Math.min(query.page, Math.max(1, Math.ceil(total / NOTIFICATIONS_PAGE_SIZE)));
+    const events = await db.notificationEvent.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (page - 1) * NOTIFICATIONS_PAGE_SIZE,
+      take: NOTIFICATIONS_PAGE_SIZE,
+      include: { deliveries: { select: { status: true } } }
+    });
+    return { items: events.map((e) => summary(e, e.deliveries.map((d) => d.status))), total, page, pageSize: NOTIFICATIONS_PAGE_SIZE };
+  });
 }
 
 export async function notificationDetail(id: string) {

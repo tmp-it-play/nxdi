@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { Check, RefreshCw, X } from "lucide-react";
 import { Badge, Field, Notice, Panel, SectionHeader, TdsSelect } from "@/app/components/tds";
+import { PaginationControls } from "@/app/components/client-pagination";
 import { formatDateTime } from "@/lib/format";
 import type {
   EmailPreview,
@@ -362,6 +363,7 @@ export function NotificationManager({ initialData }: { initialData: Notification
     params.set("mode", "PRODUCTION");
     const result = await request<NotificationsResponse>(`${BASE}?${params}`);
     if (requestId !== listRequest.current) return;
+    params.set("page", String(result.page));
     activeQuery.current = params.toString();
     setData(result);
   }
@@ -420,10 +422,14 @@ export function NotificationManager({ initialData }: { initialData: Notification
             </tr>) : <tr><td colSpan={6} className={styles.empty}>{data ? "조건에 맞는 발송 이력이 없습니다." : "발송 이력을 불러올 수 없습니다."}</td></tr>}</tbody>
           </table>
         </div>
-        {data ? <div className={styles.pagination}>
-          <span>전체 {data.total}건 · {data.page} / {Math.max(1, Math.ceil(data.total / data.pageSize))}페이지</span>
-          <div className={styles.actions}><button type="button" className="secondary" disabled={Boolean(busy) || data.page <= 1} onClick={() => movePage(data.page - 1)}>이전</button><button type="button" className="secondary" disabled={Boolean(busy) || data.page * data.pageSize >= data.total} onClick={() => movePage(data.page + 1)}>다음</button></div>
-        </div> : null}
+        {data ? <PaginationControls
+          label="발송 이력 페이지"
+          page={data.page}
+          pageSize={data.pageSize}
+          totalItems={data.total}
+          disabled={Boolean(busy)}
+          onPageChange={movePage}
+        /> : null}
       </Panel>
       {selectedId ? <NotificationDetailDialog eventId={selectedId} onClose={() => setSelectedId(null)} onChanged={refreshList} onOpenDetail={setSelectedId} /> : null}
     </div>
