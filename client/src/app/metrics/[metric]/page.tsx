@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { AuthNavActions } from "@/app/components/auth-actions";
-import { MetricChart } from "./MetricChart";
+import { CandleChart } from "@/app/components/candle-chart";
 import {
   AppShell,
   Grid,
@@ -68,6 +68,8 @@ export default async function MetricDetailPage({ params }: MetricDetailProps) {
   const { user, portfolioDividend, candles, currentRate, totalMarketValueKrw } = result;
   const currentDividendYield = portfolioDividend.dividendYield;
   const valueFormat = metric === "daily-change" ? "krw" : "percent";
+  const monthly = metric === "dividend-yield";
+  const period = monthly ? "월봉" : "일봉";
   const labels = METRIC_LABELS[metric];
   const linkedMetricTitle = (target: MetricSlug) =>
     metric === target ? (
@@ -94,12 +96,18 @@ export default async function MetricDetailPage({ params }: MetricDetailProps) {
         />
       </Grid>
 
-      <MetricChart
-        title={labels.title}
+      <SectionHeader
+        title={`세부 차트 · ${period}`}
+        description={monthly
+          ? "꼬리는 월중 평가금액으로 계산한 배당수익률의 범위입니다. 확정된 달은 실배당을 연환산하고, 이번 달 배당이 미확정이면 연 예상 배당금을 사용합니다."
+          : "꼬리는 하루 동안 수집한 평가값의 범위입니다. 장중 기록이 없는 과거 일봉은 전일 종가와 당일 종가를 연결합니다."}
+      />
+      <CandleChart
         candles={candles}
-        weeklyCandles={result.weeklyCandles}
-        monthly={metric === "dividend-yield"}
+        label={`${labels.title} ${period} 차트`}
+        size="detail"
         valueFormat={valueFormat}
+        dateGranularity={monthly ? "month" : "day"}
       />
 
       <SectionHeader title="계산 기준" description="관리자 포트폴리오, 시장 가격, 일별 평가금액 스냅샷을 조합한 값입니다." />

@@ -113,14 +113,6 @@ export function pointsFromSnapshots(snapshots: PortfolioDailySnapshot[]) {
   });
 }
 
-type SnapshotPeriod = "day" | "week";
-
-function weekStart(date: string) {
-  const day = new Date(`${date}T00:00:00Z`);
-  day.setUTCDate(day.getUTCDate() - (day.getUTCDay() + 6) % 7);
-  return day.toISOString().slice(0, 10);
-}
-
 function candleFromObservations(date: string, observations: number[], close: number, previousClose?: number): MarketCandle {
   const open = observations[0] ?? previousClose ?? close;
   let high = Math.max(open, close);
@@ -150,7 +142,6 @@ function observationsThroughClose(snapshot: PortfolioDailySnapshot, latest: bool
 
 function snapshotCandles(
   snapshots: PortfolioDailySnapshot[],
-  period: SnapshotPeriod,
   metricValue: (valuation: PortfolioValuation) => number | undefined
 ) {
   const candles: MarketCandle[] = [];
@@ -160,22 +151,13 @@ function snapshotCandles(
     const close = valuation && metricValue(valuation);
     if (close === undefined) continue;
     const values = observationsThroughClose(snapshot, latest).map(metricValue).filter((value) => value !== undefined);
-    const previous = candles.at(-1);
-    const date = period === "week" ? weekStart(snapshot.date) : snapshot.date;
-    const candle = candleFromObservations(date, values, close, period === "day" ? previous?.close : undefined);
-    if (previous?.date === date) {
-      previous.high = Math.max(previous.high, candle.high);
-      previous.low = Math.min(previous.low, candle.low);
-      previous.close = close;
-    } else {
-      candles.push(candle);
-    }
+    candles.push(candleFromObservations(snapshot.date, values, close, candles.at(-1)?.close));
   }
   return candles;
 }
 
-export function candlesFromSnapshots(snapshots: PortfolioDailySnapshot[], period: SnapshotPeriod = "day") {
-  return snapshotCandles(snapshots, period, (sample) => sample.totalMarketValueKrw);
+export function candlesFromSnapshots(snapshots: PortfolioDailySnapshot[]) {
+  return snapshotCandles(snapshots, (sample) => sample.totalMarketValueKrw);
 }
 
 function candlesFromPoints(points: ChartPoint[]) {
@@ -184,8 +166,8 @@ function candlesFromPoints(points: ChartPoint[]) {
   );
 }
 
-export function returnCandlesFromSnapshots(snapshots: PortfolioDailySnapshot[], period: SnapshotPeriod = "day") {
-  return snapshotCandles(snapshots, period, ({ totalMarketValueKrw, costBasisKrw }) =>
+export function returnCandlesFromSnapshots(snapshots: PortfolioDailySnapshot[]) {
+  return snapshotCandles(snapshots, ({ totalMarketValueKrw, costBasisKrw }) =>
     costBasisKrw !== undefined && costBasisKrw > 0 ? (totalMarketValueKrw - costBasisKrw) / costBasisKrw : undefined
   );
 }

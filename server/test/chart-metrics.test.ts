@@ -78,24 +78,6 @@ describe("Given portfolio valuations collected throughout a day", () => {
   });
 });
 
-describe("Given only legacy daily closes across a year boundary", () => {
-  describe("When the dates are grouped into Monday-based weeks", () => {
-    it("Then both charts preserve each week's observed range and a single observation stays flat", () => {
-      const history = [
-        snapshot("2026-12-31", 100), snapshot("2027-01-01", 140), snapshot("2027-01-02", 80),
-        snapshot("2027-01-03", 110), snapshot("2027-01-04", 125)
-      ];
-      assert.deepEqual(candlesFromSnapshots(history, "week"), [
-        { date: "2026-12-28", open: 100, high: 140, low: 80, close: 110 },
-        { date: "2027-01-04", open: 125, high: 125, low: 125, close: 125 }
-      ]);
-      assert.deepEqual(returnCandlesFromSnapshots(history, "week")[0], {
-        date: "2026-12-28", open: 0, high: 0.4, low: -0.2, close: 0.1
-      });
-    });
-  });
-});
-
 describe("Given confirmed monthly dividends and current dividend estimates", () => {
   describe("When monthly yield wicks are calculated from portfolio valuations", () => {
     it("Then historical yields use the month's annualized payout and current yields use paired estimates", () => {

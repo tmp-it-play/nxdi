@@ -270,7 +270,6 @@ export async function metricReadModel(metric: MetricSlug) {
     totalMarketValueKrw: portfolio.totalMarketValueKrw,
     portfolioDividend,
     candles,
-    weeklyCandles: metric === "dividend-yield" ? undefined : snapshotCandles(portfolio.dailySnapshots, "week"),
     currentRate
   };
 }
