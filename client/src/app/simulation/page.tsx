@@ -4,7 +4,6 @@ import { DividendForecastView } from "@/app/components/dividend-forecast-view";
 import { FormattedNumberInput } from "@/app/components/formatted-number-input";
 import {
   AppShell,
-  ButtonLink,
   CtaPanel,
   Field,
   Form,
@@ -58,18 +57,13 @@ export default async function SimulationPage({ searchParams }: SimulationPagePro
         title="투자 의향 배당 시뮬레이션"
         description="현재 운용종목과 완료된 투자·출금 의향 잔액을 참고해 정책 적용 예상치를 계산합니다. 의향이나 계산값은 계약·원금·지급권을 만들지 않습니다."
         backLink={{ href: "/" }}
-        actions={
-          <ButtonLink href="#forecast-section">
-            결과 보기
-          </ButtonLink>
-        }
       />
 
       <SectionHeader title="정책 적용 참고 예상액" description={`연 운용보수율 ${formatPercent(policy.annualManagementFeeRate)}를 월 환산해 배분액 한도에서 공제한 비구속적 가정값입니다. 세금·외부 비용은 반영하지 않습니다.`} />
 
       <Grid columns={2}>
         <CtaPanel>
-          <Form method="get">
+          <Form className="simulation-amount-form" method="get">
             <Field htmlFor="amountKrw" label="가정 투자금 (원화)">
               <FormattedNumberInput
                 defaultValue={normalizedAmount}

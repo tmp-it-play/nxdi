@@ -1845,6 +1845,10 @@ button.investment-intake-paused:disabled {
   gap: var(--tds-space-2);
 }
 
+.simulation-amount-form {
+  align-content: space-between;
+}
+
 .api-mutation-form[aria-busy="true"] button[type="submit"] {
   cursor: progress;
   opacity: 0.62;
