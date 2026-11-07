@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { wakeNotifications } from "./notifications/signals.js";
 import { randomUUID } from "node:crypto";
 import type {
@@ -206,8 +207,8 @@ export async function syncScheduledDividendRecords() {
   ]);
 }
 
-export async function readDividendRecords(): Promise<DividendRecord[]> {
-  const rows = await prisma.dividendRecord.findMany({ orderBy: { symbol: "asc" } });
+export async function readDividendRecords(db: Prisma.TransactionClient = prisma): Promise<DividendRecord[]> {
+  const rows = await db.dividendRecord.findMany({ orderBy: { symbol: "asc" } });
   return rows.map(mapDividendRecord);
 }
 
@@ -352,6 +353,7 @@ export async function forecastDividend(
     : lines.reduce((sum, line) => sum + (line.annualDividendKrw ?? 0), 0);
   return {
     amountKrw,
+    cashAllocationKrw: amountKrw * ((portfolio.cashMarketValueKrw ?? 0) / total),
     annualDividendKrw,
     monthlyAverageKrw: typeof annualDividendKrw === "number" ? annualDividendKrw / 12 : undefined,
     dividendDataMissing,
@@ -359,8 +361,8 @@ export async function forecastDividend(
   };
 }
 
-export async function summarizePortfolioDividend(portfolio: PortfolioOverview) {
-  const dividendRecords = await readDividendRecords();
+export async function summarizePortfolioDividend(portfolio: PortfolioOverview, db: Prisma.TransactionClient = prisma) {
+  const dividendRecords = await readDividendRecords(db);
   const recordsBySymbol = dividendRecordsBySymbol(dividendRecords);
 
   let annualDividendKrw = 0;
@@ -377,7 +379,7 @@ export async function summarizePortfolioDividend(portfolio: PortfolioOverview) {
     annualDividendKrw += holding.quantity * dividendPerShareKrw(record, portfolio.exchangeRate);
   }
 
-  const costBasisKrw = portfolioCostBasisKrw(portfolio.holdings);
+  const costBasisKrw = portfolioCostBasisKrw(portfolio.holdings, portfolio.cashAssets);
   const completeAnnualDividendKrw = dividendDataMissing ? undefined : annualDividendKrw;
 
   return {

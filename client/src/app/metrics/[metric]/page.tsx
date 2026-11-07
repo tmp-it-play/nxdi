@@ -24,11 +24,11 @@ type MetricDetailProps = {
 const METRIC_LABELS = {
   "daily-change": {
     title: "오늘 등락률",
-    description: "현재 포트폴리오 평가금액과 보유 종목 전일 종가 합산액 기준으로 흐름을 보여줍니다."
+    description: "현금을 포함한 현재 총 평가액과 한국 시간 전일의 확정 평가액을 비교합니다."
   },
   "holding-return": {
     title: "보유 수익률",
-    description: "일별 확정 평가금액과 매입환율 반영 원화 원가 기준으로 흐름을 보여줍니다."
+    description: "종목 매입원가와 현금의 고정 원금을 합한 기준으로 보유 수익률을 계산합니다."
   },
   "dividend-yield": {
     title: "배당수익률",
@@ -89,7 +89,7 @@ export default async function MetricDetailPage({ params }: MetricDetailProps) {
       <Grid columns={4} className="mt-16">
         <Metric label="현재 지표" value={<RatePill value={currentRate} />} />
         <Metric label="평가금액" value={formatKrw(totalMarketValueKrw)} />
-        <Metric label="매입원금" value={formatOptionalKrw(portfolioDividend.costBasisKrw)} />
+        <Metric label="기준 원금" value={formatOptionalKrw(portfolioDividend.costBasisKrw)} />
         <Metric
           label="연 예상 배당"
           value={formatOptionalKrw(portfolioDividend.annualDividendKrw)}
@@ -110,19 +110,19 @@ export default async function MetricDetailPage({ params }: MetricDetailProps) {
         dateGranularity={monthly ? "month" : "day"}
       />
 
-      <SectionHeader title="계산 기준" description="관리자 포트폴리오, 시장 가격, 일별 평가금액 스냅샷을 조합한 값입니다." />
+      <SectionHeader title="계산 기준" description="현금은 기능 도입 이후 기록부터 포함됩니다. 현금 잔액 수정과 환율 변화도 성과에 반영하며, 이전 기록은 유지합니다." />
 
       <List>
         {metric === "daily-change" ? (
           <ListRow
             title={linkedMetricTitle("daily-change")}
-            description="현재 보유 평가금액 총합과 보유 종목별 전일 종가 기준 평가금액 총합 비교"
+            description="현금 포함 현재 총 평가액과 전일 확정 총 평가액 비교. 자산 편입과 잔액 증감도 포함합니다."
             value={<RatePill value={currentRate} />}
           />
         ) : null}
         <ListRow
           title={linkedMetricTitle("holding-return")}
-          description="현재 평가금액과 매입환율이 반영된 원화 매입원금 기준"
+          description="현금 포함 현재 평가액 대비 종목 매입원가와 현금 고정 원금 기준"
           value={<RatePill value={portfolioDividend.totalReturnRate} />}
         />
         <ListRow

@@ -1,7 +1,7 @@
 import type { Disclosure, PortfolioOverview } from "../../domain/types.js";
 import type { MonthlyPayoutRecipient, RenderedEmail } from "../../domain/notifications/index.js";
 
-export const TEMPLATE_VERSION = "4";
+export const TEMPLATE_VERSION = "5";
 
 type TemplateOptions = { correctionReason?: string };
 
@@ -167,11 +167,19 @@ export function renderQuarterlyHoldingsEmail(input: QuarterlyHoldingsEmailInput)
     ["환율 갱신 일시", timestamp(portfolio.exchangeRateFetchedAt)],
     ["환율 출처", portfolio.exchangeRateSource]
   ];
-  const holdingsHtml = portfolio.holdings.length ? `<table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed"><caption style="text-align:left;font-size:18px;font-weight:600;margin:24px 0 12px">운영종목 보유 내역</caption><thead><tr>${["종목", "수량", "기준가격", "평가액"].map((label) => `<th scope="col" style="text-align:left;padding:8px 4px;border-bottom:2px solid #cbd5e1">${label}</th>`).join("")}</tr></thead><tbody>${portfolio.holdings.map((holding) => `<tr>${[
-    `${holding.alias || holding.name} (${holding.symbol})`, `${amount(holding.quantity, 8)}주`,
-    `${amount(holding.lastPrice, holding.currency === "USD" ? 4 : 0)} ${holding.currency}`, won(holding.marketValueKrw)
-  ].map((value) => `<td style="padding:10px 4px;border-bottom:1px solid #e5e7eb;vertical-align:top;overflow-wrap:anywhere">${escapeHtml(value)}</td>`).join("")}</tr>`).join("")}</tbody></table>` : "<p>현재 등록된 운영종목이 없습니다.</p>";
-  const holdingsText = portfolio.holdings.map((holding) => `${holding.alias || holding.name} (${holding.symbol}) | ${amount(holding.quantity, 8)}주 | 기준가격 ${amount(holding.lastPrice, holding.currency === "USD" ? 4 : 0)} ${holding.currency} | 평가액 ${won(holding.marketValueKrw)}`).join("\n") || "현재 등록된 운영종목이 없습니다.";
+  const assetRows = [
+    ...portfolio.holdings.filter((holding) => holding.quantity > 0).map((holding) => ({
+      value: holding.marketValueKrw,
+      cells: [`${holding.alias || holding.name} (${holding.symbol})`, `${amount(holding.quantity, 8)}주`,
+        `${amount(holding.lastPrice, holding.currency === "USD" ? 4 : 0)} ${holding.currency}`, won(holding.marketValueKrw)]
+    })),
+    ...(portfolio.cashAssets ?? []).map((cash) => ({
+      value: cash.marketValueKrw,
+      cells: [cash.currency === "KRW" ? "원화 현금" : "달러 현금", `${amount(cash.balance, cash.currency === "USD" ? 2 : 0)} ${cash.currency}`, "현금성 자산", won(cash.marketValueKrw)]
+    }))
+  ].sort((a, b) => b.value - a.value);
+  const holdingsHtml = assetRows.length ? `<table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed"><caption style="text-align:left;font-size:18px;font-weight:600;margin:24px 0 12px">운용 자산 보유 내역</caption><thead><tr>${["자산", "수량·잔액", "기준가격·구분", "평가액"].map((label) => `<th scope="col" style="text-align:left;padding:8px 4px;border-bottom:2px solid #cbd5e1">${label}</th>`).join("")}</tr></thead><tbody>${assetRows.map(({ cells }) => `<tr>${cells.map((value) => `<td style="padding:10px 4px;border-bottom:1px solid #e5e7eb;vertical-align:top;overflow-wrap:anywhere">${escapeHtml(value)}</td>`).join("")}</tr>`).join("")}</tbody></table>` : "<p>현재 등록된 운용 자산이 없습니다.</p>";
+  const holdingsText = assetRows.map(({ cells }) => cells.join(" | ")).join("\n") || "현재 등록된 운용 자산이 없습니다.";
   const note = "발송 준비 시 조회한 최신 저장 내역을 기준으로 발급한 펀드 전체 운영종목 보유확인서입니다. 개인의 투자 잔액 또는 지분을 증명하는 문서는 아닙니다. 기준가격은 저장된 가격이며 실시간 시장가격과 다를 수 있습니다.";
   return render(
     `NXDI ${input.period} 운영종목 보유확인서`,

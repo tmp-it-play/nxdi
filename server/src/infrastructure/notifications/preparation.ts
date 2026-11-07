@@ -18,6 +18,7 @@ const disclosureUrl = (id: string) => new URL(`/disclosures/${encodeURIComponent
 export function checkedPortfolio(portfolio: PortfolioOverview) {
   requireCondition(Number.isFinite(portfolio.totalMarketValueKrw) && portfolio.totalMarketValueKrw >= 0
     && Number.isFinite(portfolio.exchangeRate) && portfolio.exchangeRate > 0
+    && (portfolio.cashAssets ?? []).every((cash) => [cash.balance, cash.initialCostBasisKrw, cash.marketValueKrw].every((n) => Number.isFinite(n) && n >= 0))
     && portfolio.holdings.every((holding) => [holding.quantity, holding.lastPrice, holding.marketValueKrw].every((n) => Number.isFinite(n) && n >= 0)), "INVALID_VALUATION", "평가금액을 확인한 뒤 다시 준비합니다.");
   return portfolio;
 }
@@ -41,7 +42,7 @@ export async function prepareProduction(type: NotificationType, period: string |
   if (!record) return null;
   requireCondition(record.referenceMarketValueKrw !== null && Number.isFinite(record.referenceMarketValueKrw) && record.referenceMarketValueKrw > 0, "MONTH_END_REQUIRED", "확정된 월말 평가액을 실배당 기록에 등록해 주세요.");
   const payoutContext = await readPayoutContext(period, db);
-  const result = calculateMonthlyPayouts({ store, dividendMonth: period, totalMarketValueKrw: portfolio.totalMarketValueKrw, actualDividendKrw: record.actualDividendKrw, ...payoutContext });
+  const result = calculateMonthlyPayouts({ store, dividendMonth: period, totalMarketValueKrw: record.referenceMarketValueKrw, actualDividendKrw: record.actualDividendKrw, ...payoutContext });
   const recipients = priorRecipients === undefined ? result.recipients : monthlyCorrectionRecipients(priorRecipients, result.recipients);
   return {
     facts: { ...result, recipients, totalReturnAccruals: payoutContext.totalReturnAccruals, policy: productPolicyDto(), policyVersion: DIVIDEND_POLICY_VERSION, policyHash: DIVIDEND_POLICY_SHA256, portfolio, record, store, calculatedAt: now.toISOString() },

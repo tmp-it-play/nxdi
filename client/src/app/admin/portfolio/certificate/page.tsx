@@ -6,6 +6,7 @@ import { CertificatePrintActions } from "@/app/admin/CertificatePrintActions";
 import { getAdminDashboard } from "@/lib/api";
 import { FUND_KOREAN_NAME, FUND_NAME, FUND_TICKER } from "@/lib/brand";
 import { stockPrimaryLabel, stockSecondaryLabel } from "@/lib/stock-display";
+import { cashLabel, portfolioAssets, type PortfolioAsset } from "@/lib/portfolio-assets";
 import type { Holding } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -55,9 +56,9 @@ function formatNativePrice(holding: Holding) {
   return holding.currency === "KRW" ? `${amount}원` : `$${amount}`;
 }
 
-function portfolioFingerprint(issuedAt: Date, fetchedAt: string, exchangeRate: number, holdings: Holding[]) {
+function portfolioFingerprint(issuedAt: Date, fetchedAt: string, exchangeRate: number, assets: PortfolioAsset[]) {
   return createHash("sha256")
-    .update(JSON.stringify({ issuedAt: issuedAt.toISOString(), fetchedAt, exchangeRate, holdings }))
+    .update(JSON.stringify({ issuedAt: issuedAt.toISOString(), fetchedAt, exchangeRate, assets }))
     .digest("hex")
     .toUpperCase();
 }
@@ -90,17 +91,18 @@ export default async function PortfolioCertificatePage() {
   const holdings = [...dashboard.portfolio.holdings]
     .filter((holding) => holding.quantity > 0 && holding.marketValueKrw > 0)
     .sort((a, b) => b.marketValueKrw - a.marketValueKrw || a.symbol.localeCompare(b.symbol));
-  const totalMarketValueKrw = holdings.reduce((sum, holding) => sum + holding.marketValueKrw, 0);
+  const assets = portfolioAssets({ holdings, cashAssets: dashboard.portfolio.cashAssets });
+  const totalMarketValueKrw = dashboard.portfolio.totalMarketValueKrw;
   const fingerprint = portfolioFingerprint(
     issuedAt,
     dashboard.portfolio.fetchedAt,
     dashboard.portfolio.exchangeRate,
-    holdings
+    assets
   );
   const issuedAtParts = certificateDateParts(issuedAt);
   const documentNumber = `NXDI-PORT-${issuedAtParts.year}${issuedAtParts.month}${issuedAtParts.day}-${fingerprint.slice(0, 8)}`;
   const printFileNamePrefix = `NXDI_운영종목_보유확인서_${issuedAtParts.year}${issuedAtParts.month}${issuedAtParts.day}`;
-  const holdingPages = paginateHoldings(holdings);
+  const holdingPages = paginateHoldings(assets);
 
   return (
     <main className="certificate-page portfolio-certificate-page">
@@ -192,7 +194,17 @@ export default async function PortfolioCertificatePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pageHoldings.map((holding, index) => {
+                    {pageHoldings.map((asset, index) => {
+                      if (asset.kind === "cash") return (
+                        <tr key={asset.id}>
+                          <td>{startIndex + index + 1}</td><td><strong>{cashLabel(asset.cash.currency)}</strong></td>
+                          <td>{asset.cash.currency}</td><td>현금성 자산</td>
+                          <td>{formatNumber(asset.cash.balance, asset.cash.currency === "USD" ? 2 : 0)} {asset.cash.currency}</td>
+                          <td>—</td><td>{formatKrw(asset.marketValueKrw)}</td>
+                          <td>{formatNumber(totalMarketValueKrw > 0 ? asset.marketValueKrw / totalMarketValueKrw * 100 : 0, 2)}%</td>
+                        </tr>
+                      );
+                      const holding = asset.holding;
                       const secondaryLabel = stockSecondaryLabel(holding);
                       const weight = totalMarketValueKrw > 0
                         ? holding.marketValueKrw / totalMarketValueKrw
@@ -219,12 +231,12 @@ export default async function PortfolioCertificatePage() {
                       </tr>
                     ) : null}
                   </tbody>
-                  {isLastPage && holdings.length > 0 ? (
+                  {isLastPage && assets.length > 0 ? (
                     <tfoot>
                       <tr>
                         <th colSpan={6}>합계</th>
                         <td>{formatKrw(totalMarketValueKrw)}</td>
-                        <td>100%</td>
+                        <td>{totalMarketValueKrw > 0 ? "100%" : "0%"}</td>
                       </tr>
                     </tfoot>
                   ) : null}
@@ -254,7 +266,7 @@ export default async function PortfolioCertificatePage() {
                   <section className="certificate-approval portfolio-certificate-approval" aria-label="발급 확인">
                     <p>
                       위 내역은 상기 기준 일시 현재 {FUND_TICKER} 운용 포트폴리오에서 실제 보유 수량이
-                      확인되는 운영종목의 원장 기록과 일치함을 증명합니다.
+                      확인되는 운영종목과 현금성 자산의 원장 기록과 일치함을 증명합니다.
                     </p>
                     <time dateTime={issuedAt.toISOString()}>{formatCertificateDate(issuedAt)}</time>
                     <div className="certificate-issuer">
@@ -286,7 +298,7 @@ export default async function PortfolioCertificatePage() {
                     <h2>안내사항</h2>
                     <ul>
                       <li>본 문서는 포트폴리오 기준 일시의 관리자 운용 원장과 시장 평가정보를 기준으로 작성되었습니다.</li>
-                      <li>보유수량이 0인 등록 종목은 제외하며, 평가액은 기준가격과 적용 환율에 따라 변동될 수 있습니다.</li>
+                      <li>보유수량이 0인 등록 종목은 제외하고 현금은 잔액이 0이어도 포함합니다. 평가액은 기준가격과 적용 환율에 따라 변동될 수 있습니다.</li>
                       <li>문서 지문은 발급 시점의 표시 데이터를 식별하기 위한 값입니다.</li>
                     </ul>
                   </aside>

@@ -27,6 +27,8 @@ import { FLASH_COOKIE_NAME, getFlashMessages } from "@/lib/flash";
 import { formatDateTime, formatKrw, formatNumber } from "@/lib/format";
 import { stockFullLabel, stockPrimaryLabel, stockSecondaryLabel } from "@/lib/stock-display";
 
+import { cashLabel, portfolioAssets } from "@/lib/portfolio-assets";
+
 const HOME_HOLDINGS_PAGE_SIZE = 8;
 const PORTFOLIO_CHART_TOP_HOLDINGS = 19;
 
@@ -63,6 +65,7 @@ export default async function Home() {
     dividendYieldPoints,
     holdingCharts
   } = home;
+  const assets = portfolioAssets(portfolio);
   const currentDividendYield = portfolioDividend.dividendYield;
   const sortedPortfolioAllocation = [...portfolio.holdings]
     .filter((holding) => holding.marketValueKrw > 0)
@@ -86,6 +89,10 @@ export default async function Home() {
       value: otherPortfolioAllocation.reduce((sum, holding) => sum + holding.marketValueKrw, 0)
     });
   }
+  portfolioAllocation.push(...(portfolio.cashAssets ?? []).filter((cash) => cash.marketValueKrw > 0).map((cash) => ({
+    id: `cash:${cash.currency}`, label: cashLabel(cash.currency), description: cash.currency,
+    href: undefined, value: cash.marketValueKrw
+  })));
   return (
     <AppShell className="home-shell">
       <ToastStack messages={flashMessages} clearCookieName={FLASH_COOKIE_NAME} />
@@ -180,11 +187,11 @@ export default async function Home() {
       <div className="home-dashboard-grid">
         <aside className="home-dashboard-aside">
           <Panel className="tds-composition-panel">
-            <h2>구성 종목 비중</h2>
+            <h2>자산 구성 비중</h2>
             <CompositionChart
               emptyText="포트폴리오 데이터 없음"
               items={portfolioAllocation}
-              label="포트폴리오 구성 종목 비중"
+              label="포트폴리오 자산 구성 비중"
             />
           </Panel>
 
@@ -217,10 +224,19 @@ export default async function Home() {
         <div className="home-dashboard-main">
           <PaginatedList
             className="home-holdings-list"
-            label="포트폴리오 종목 페이지"
+            label="포트폴리오 자산 페이지"
             pageSize={HOME_HOLDINGS_PAGE_SIZE}
           >
-            {portfolio.holdings.map((holding) => {
+            {assets.map((asset) => {
+              if (asset.kind === "cash") return (
+                <ListRow
+                  key={asset.id}
+                  title={cashLabel(asset.cash.currency)}
+                  description={`${formatNumber(asset.cash.balance, asset.cash.currency === "USD" ? 2 : 0)} ${asset.cash.currency === "KRW" ? "원" : "USD"} · 현금성 자산`}
+                  value={<div className="holding-row-price"><span>{formatKrw(asset.marketValueKrw)}</span><RowMeta>고정 원금 대비 {formatPercent(asset.cash.profitLossRate)}</RowMeta></div>}
+                />
+              );
+              const holding = asset.holding;
               const chart = holdingCharts[holding.symbol];
               const href = `/stocks/${encodeURIComponent(holding.symbol)}`;
               const secondaryLabel = stockSecondaryLabel(holding);

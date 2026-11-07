@@ -23,7 +23,8 @@ import {
   finalizePortfolioDailySnapshot,
   readMonthEndPortfolioMarketValueKrw,
   refreshPortfolioMarketSnapshot,
-  upsertManualHolding
+  upsertManualHolding,
+  updateCashBalance
 } from "../infrastructure/portfolio-store.js";
 import {
   ROADMAP_EVENT_CATEGORIES,
@@ -154,6 +155,21 @@ export async function registerAdminRoutes(app: FastifyInstance) {
     if (result.status === "principal_invariant") return adminError(reply, "status_principal_invariant");
     if (result.status === "not_found") return adminError(reply, "invalid_status");
     return adminSuccess(reply, "admin-updated", "상태가 저장되었습니다");
+  });
+
+  app.post("/api/admin/portfolio/cash", async (request, reply) => {
+    if (!admin(request)) return reply.code(403).send({ message: "관리자 권한이 필요합니다" });
+    const parsed = z.object({
+      currency: z.enum(["KRW", "USD"]),
+      balance: z.string().trim().min(1).max(20),
+      expectedVersion: z.union([z.number(), z.string().regex(/^\d+$/)]).pipe(z.coerce.number().int().nonnegative().max(2_147_483_647))
+    }).strict().safeParse(formBody(request));
+    if (!parsed.success) return reply.code(400).send({ message: "통화와 잔액을 확인해주세요" });
+    const result = await updateCashBalance(parsed.data);
+    if (result.status === "conflict") return reply.code(409).send({ message: "다른 변경이 저장되었습니다. 새로고침 후 다시 수정해주세요" });
+    if (result.status === "not_found") return reply.code(404).send({ message: "현금 초기화가 필요합니다" });
+    if (result.status === "invalid") return reply.code(400).send({ message: "원화는 정수, 달러는 소수 둘째 자리까지 0 이상 1조 이하로 입력해주세요" });
+    return adminSuccess(reply, "cash-updated", result.status === "unchanged" ? "잔액 변경이 없습니다" : "현금 잔액과 당일 평가 기록이 저장되었습니다");
   });
 
   app.post("/api/admin/portfolio/holding", async (request, reply) => {

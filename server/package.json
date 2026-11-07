@@ -18,6 +18,7 @@
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:notification-baseline": "node scripts/notification-baseline.mjs",
+    "db:seed-cash": "node scripts/seed-portfolio-cash.mjs",
     "db:seed": "tsx prisma/seed.ts",
     "db:encrypt-sensitive": "tsx scripts/encrypt-sensitive-fields.ts",
     "db:backfill-roadmap": "tsx scripts/backfill-roadmap-events.ts"

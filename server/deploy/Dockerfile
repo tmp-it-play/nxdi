@@ -34,6 +34,8 @@ COPY --from=build --chown=node:node /app/node_modules/@prisma/client ./node_modu
 COPY --from=build --chown=node:node /app/node_modules/@prisma/engines ./node_modules/@prisma/engines
 COPY --chown=node:node scripts/notification-baseline.mjs ./scripts/notification-baseline.mjs
 
+COPY --chown=node:node scripts/seed-portfolio-cash.mjs ./scripts/seed-portfolio-cash.mjs
+
 USER node
 
 EXPOSE 3000

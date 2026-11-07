@@ -115,6 +115,9 @@ export default async function SimulationPage({ searchParams }: SimulationPagePro
         description="정책 배분 전 가정 투자금의 종목별 예상 배당입니다. 실제 지급액은 위 정책 적용 결과를 확인하세요."
       />
 
+      <List className="mb-16">
+        <ListRow title="현금성 자산 배정액" description="현재 현금 비중에 따라 배정합니다. 예상 이자·배당은 별도로 가정하지 않습니다." value={formatKrw(forecast.cashAllocationKrw ?? 0)} />
+      </List>
       <DividendForecastView lines={forecast.lines} />
     </AppShell>
   );

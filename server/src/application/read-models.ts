@@ -7,7 +7,7 @@ import {
   monthlyDividendYieldCandlesFromSnapshots,
   pointsFromCandles,
   pointsFromSnapshots,
-  portfolioChangeRateFromMarketValue,
+  portfolioDailyChangeRate as calculatePortfolioDailyChangeRate,
   returnCandlesFromSnapshots,
   samplePoints
 } from "../domain/chart-metrics.js";
@@ -100,25 +100,18 @@ export async function publicHomeReadModel() {
     portfolioDividend,
     monthlyDividendRecords,
     disclosures,
-    dailyChartRecord,
-    dailyChangeChartRecord
+    dailyChartRecord
   ] =
     await Promise.all([
       forecastDividend(portfolio, portfolio.totalMarketValueKrw),
       summarizePortfolioDividend(portfolio),
       readMonthlyDividendRecords(),
       readDisclosures({ take: 3 }),
-      chartsFor(portfolio.holdings.map((holding) => holding.symbol), { range: "1y", interval: "1d", limit: 252 }),
-      chartsFor(portfolio.holdings.map((holding) => holding.symbol), { range: "1d", interval: "1d", limit: 1 })
+      chartsFor(portfolio.holdings.map((holding) => holding.symbol), { range: "1y", interval: "1d", limit: 252 })
     ]);
   const dailyCharts = new Map<string, MarketChart | null>(Object.entries(dailyChartRecord));
-  const dailyChangeCharts = new Map<string, MarketChart | null>(Object.entries(dailyChangeChartRecord));
   const { dailySnapshots, ...portfolioWithoutDailySnapshots } = portfolio;
-  const portfolioDailyChangeRate = portfolioChangeRateFromMarketValue({
-    holdings: portfolio.holdings,
-    charts: dailyChangeCharts,
-    exchangeRate: portfolio.exchangeRate
-  });
+  const portfolioDailyChangeRate = calculatePortfolioDailyChangeRate(portfolio.totalMarketValueKrw, dailySnapshots, new Date());
   const portfolioDailyPoints = samplePoints(pointsFromSnapshots(dailySnapshots));
   const holdingReturnPoints = samplePoints(pointsFromCandles(returnCandlesFromSnapshots(dailySnapshots)));
   const dividendYieldPoints = samplePoints(pointsFromCandles(
@@ -238,14 +231,10 @@ export type MetricSlug = typeof METRIC_SLUGS[number];
 
 export async function metricReadModel(metric: MetricSlug) {
   const portfolio = await getManualPortfolioOverview({ includeObservations: true });
-  const [portfolioDividend, monthlyDividendRecords, dailyCharts] = await Promise.all([
+  const [portfolioDividend, monthlyDividendRecords] = await Promise.all([
     summarizePortfolioDividend(portfolio),
-    metric === "dividend-yield" ? readMonthlyDividendRecords() : Promise.resolve([]),
-    metric === "daily-change"
-      ? chartsFor(portfolio.holdings.map((holding) => holding.symbol), { range: "1d", interval: "1d", limit: 1 })
-      : Promise.resolve({})
+    metric === "dividend-yield" ? readMonthlyDividendRecords() : Promise.resolve([])
   ]);
-  const dailyChartMap = new Map<string, MarketChart | null>(Object.entries(dailyCharts));
   const snapshotCandles = metric === "holding-return" ? returnCandlesFromSnapshots : candlesFromSnapshots;
   const candles = metric === "dividend-yield"
     ? monthlyDividendYieldCandlesFromSnapshots(
@@ -259,11 +248,7 @@ export async function metricReadModel(metric: MetricSlug) {
     ? portfolioDividend.totalReturnRate
     : metric === "dividend-yield"
       ? portfolioDividend.dividendYield
-      : portfolioChangeRateFromMarketValue({
-          holdings: portfolio.holdings,
-          charts: dailyChartMap,
-          exchangeRate: portfolio.exchangeRate
-        });
+      : calculatePortfolioDailyChangeRate(portfolio.totalMarketValueKrw, portfolio.dailySnapshots, new Date());
 
   return {
     metric,

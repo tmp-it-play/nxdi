@@ -30,7 +30,28 @@ model PortfolioHolding {
   @@map("tb_portfolio_holdings")
 }
 
+model PortfolioCashAsset {
+  currency            String   @id @db.VarChar(3)
+  balance             Decimal  @db.Decimal(18, 2)
+  initialBalance      Decimal  @map("initial_balance") @db.Decimal(18, 2)
+  initialCostBasisKrw  Decimal  @map("initial_cost_basis_krw") @db.Decimal(18, 2)
+  version             Int      @default(0)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("tb_portfolio_cash_assets")
+}
+
 model PortfolioDailySnapshot {
+  cashBalanceKrw Float? @map("cash_balance_krw")
+  cashBalanceUsd Float? @map("cash_balance_usd")
+  cashMarketValueKrw Float? @map("cash_market_value_krw")
+  cashCostBasisKrw Float? @map("cash_cost_basis_krw")
+  closeCashBalanceKrw Float? @map("close_cash_balance_krw")
+  closeCashBalanceUsd Float? @map("close_cash_balance_usd")
+  closeCashMarketValueKrw Float? @map("close_cash_market_value_krw")
+  closeCashCostBasisKrw Float? @map("close_cash_cost_basis_krw")
+
   snapshotDate             String    @id @db.VarChar(10)
   totalMarketValueKrw      Float
   exchangeRate             Float
@@ -51,6 +72,12 @@ model PortfolioDailySnapshot {
 }
 
 model PortfolioValuationObservation {
+  cashBalanceKrw Float? @map("cash_balance_krw")
+  cashBalanceUsd Float? @map("cash_balance_usd")
+  cashMarketValueKrw Float? @map("cash_market_value_krw")
+  cashCostBasisKrw Float? @map("cash_cost_basis_krw")
+  exchangeRate Float? @map("exchange_rate")
+
   id                  Int                    @id @default(autoincrement())
   snapshotDate        String                 @map("snapshot_date") @db.VarChar(10)
   snapshot            PortfolioDailySnapshot @relation(fields: [snapshotDate], references: [snapshotDate], onDelete: Cascade)

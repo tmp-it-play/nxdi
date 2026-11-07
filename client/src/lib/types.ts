@@ -82,7 +82,22 @@ export type Holding = {
   riskLevel?: HoldingRiskLevel;
 };
 
+export type PortfolioCashAsset = {
+  currency: "KRW" | "USD";
+  balance: number;
+  initialBalance: number;
+  initialCostBasisKrw: number;
+  version: number;
+  updatedAt: string;
+  marketValueKrw: number;
+  profitLossKrw: number;
+  profitLossRate?: number;
+};
+
 export type PortfolioOverview = {
+  cashAssets?: PortfolioCashAsset[];
+  securitiesMarketValueKrw?: number;
+  cashMarketValueKrw?: number;
   source: "manual";
   fetchedAt: string;
   exchangeRate: number;
@@ -144,6 +159,7 @@ export type DividendForecastLine = {
 };
 
 export type DividendForecast = {
+  cashAllocationKrw?: number;
   amountKrw: number;
   annualDividendKrw?: number;
   monthlyAverageKrw?: number;

@@ -26,3 +26,6 @@ docker compose -f "$COMPOSE_FILE" build --pull
 # Existing installations must complete the documented, verified one-time baseline.
 # migrate deploy refuses unbaselined non-empty databases; never use db push here.
 docker compose -f "$COMPOSE_FILE" run --rm --no-deps server npm run db:migrate
+
+# One-time cash initialization; existing balances and bases are preserved.
+docker compose -f "$COMPOSE_FILE" run --rm --no-deps server npm run db:seed-cash

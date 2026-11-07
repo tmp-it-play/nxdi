@@ -1,4 +1,9 @@
 export type SnapshotState = {
+  cashBalanceKrw?: number | null;
+  cashBalanceUsd?: number | null;
+  cashMarketValueKrw?: number | null;
+  cashCostBasisKrw?: number | null;
+
   totalMarketValueKrw: number;
   exchangeRate: number;
   costBasisKrw: number | null;
@@ -27,6 +32,10 @@ export class PortfolioSnapshotService {
       exchangeRate: snapshot.exchangeRate,
       costBasisKrw: snapshot.costBasisKrw,
       annualDividendKrw: snapshot.annualDividendKrw,
+      cashBalanceKrw: snapshot.cashBalanceKrw,
+      cashBalanceUsd: snapshot.cashBalanceUsd,
+      cashMarketValueKrw: snapshot.cashMarketValueKrw,
+      cashCostBasisKrw: snapshot.cashCostBasisKrw,
       closedAt
     });
     if (!closed) return { status: "already_closed" as const };

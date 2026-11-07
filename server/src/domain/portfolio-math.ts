@@ -1,4 +1,4 @@
-import type { Holding } from "./types.js";
+import type { Holding, PortfolioCashAsset } from "./types.js";
 
 export function holdingCostBasisKrw(holding: Pick<
   Holding,
@@ -13,8 +13,8 @@ export function holdingCostBasisKrw(holding: Pick<
   return holding.currency === "USD" ? nativeCost * holding.purchaseExchangeRate! : nativeCost;
 }
 
-export function portfolioCostBasisKrw(holdings: Holding[]) {
-  let total = 0;
+export function portfolioCostBasisKrw(holdings: Holding[], cashAssets: PortfolioCashAsset[] = []) {
+  let total = cashAssets.reduce((sum, cash) => sum + cash.initialCostBasisKrw, 0);
   let eligibleCount = 0;
 
   for (const holding of holdings) {
@@ -26,5 +26,5 @@ export function portfolioCostBasisKrw(holdings: Holding[]) {
     total += costBasisKrw;
   }
 
-  return eligibleCount > 0 ? total : undefined;
+  return eligibleCount > 0 || cashAssets.length > 0 ? total : undefined;
 }

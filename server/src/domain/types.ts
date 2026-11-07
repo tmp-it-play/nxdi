@@ -104,7 +104,22 @@ export type Holding = {
   riskLevel?: HoldingRiskLevel;
 };
 
+export type PortfolioCashAsset = {
+  currency: "KRW" | "USD";
+  balance: number;
+  initialBalance: number;
+  initialCostBasisKrw: number;
+  version: number;
+  updatedAt: string;
+  marketValueKrw: number;
+  profitLossKrw: number;
+  profitLossRate?: number;
+};
+
 export type PortfolioOverview = {
+  cashAssets?: PortfolioCashAsset[];
+  securitiesMarketValueKrw?: number;
+  cashMarketValueKrw?: number;
   source: "manual";
   fetchedAt: string;
   exchangeRate: number;
@@ -116,6 +131,11 @@ export type PortfolioOverview = {
 };
 
 export type PortfolioValuation = {
+  cashBalanceKrw?: number;
+  cashBalanceUsd?: number;
+  cashMarketValueKrw?: number;
+  cashCostBasisKrw?: number;
+  exchangeRate?: number;
   totalMarketValueKrw: number;
   costBasisKrw?: number;
   annualDividendKrw?: number;
@@ -125,6 +145,10 @@ export type PortfolioDailySnapshot = PortfolioValuation & {
   date: string;
   exchangeRate: number;
   observations?: (PortfolioValuation & { observedAt: string })[];
+  closeCashBalanceKrw?: number;
+  closeCashBalanceUsd?: number;
+  closeCashMarketValueKrw?: number;
+  closeCashCostBasisKrw?: number;
   closeTotalMarketValueKrw?: number;
   closeExchangeRate?: number;
   closeCostBasisKrw?: number;
@@ -135,6 +159,7 @@ export type PortfolioDailySnapshot = PortfolioValuation & {
 };
 
 export type ManualPortfolioStore = {
+  cashAssets?: PortfolioCashAsset[];
   exchangeRate: number;
   exchangeRateFetchedAt?: string;
   exchangeRateSource?: string;
@@ -178,6 +203,7 @@ export type DividendForecastLine = {
 };
 
 export type DividendForecast = {
+  cashAllocationKrw?: number;
   amountKrw: number;
   annualDividendKrw?: number;
   monthlyAverageKrw?: number;

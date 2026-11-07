@@ -1,5 +1,7 @@
 import { LockKeyhole } from "lucide-react";
 import Link from "next/link";
+import { AdminCashForm } from "./AdminCashForm";
+import { cashLabel, portfolioAssets } from "@/lib/portfolio-assets";
 import { AdminHoldingForm } from "./AdminHoldingForm";
 import { DisclosureForm } from "./DisclosureForm";
 import { DividendAllocationCalculator } from "./DividendAllocationCalculator";
@@ -135,6 +137,7 @@ export default async function AdminPage() {
   } = dashboard;
   const flashMessages = await getFlashMessages();
   const notifications = await getAdminNotifications().catch(() => null);
+  const assets = portfolioAssets(portfolio);
   const externalNetPrincipal = investorBalances.reduce((sum, balance) => sum + balance.netPrincipalKrw, 0);
   const externalTotalCapital = investorBalances.reduce((sum, balance) => sum + balance.totalBalanceKrw, 0);
   const dividendRecordsBySymbol = new Map(
@@ -248,7 +251,7 @@ export default async function AdminPage() {
           label="운영 포트폴리오 페이지"
           panelHeader={
             <div className="admin-panel-header">
-              <h2>보유 종목</h2>
+              <h2>보유 자산</h2>
               <Link
                 aria-label="운영종목 보유확인서 발급"
                 className="button secondary portfolio-certificate-link"
@@ -264,22 +267,20 @@ export default async function AdminPage() {
           search={{
             ariaLabel: "운영 포트폴리오 종목 검색",
             noResultsText: "일치하는 운영 종목이 없습니다.",
-            placeholder: "종목 검색",
-            texts: portfolio.holdings.map((holding) => [
-              holding.symbol,
-              holding.name,
-              holding.alias,
-              stockPrimaryLabel(holding),
-              stockSecondaryLabel(holding)
+            placeholder: "종목 또는 현금 검색",
+            texts: assets.map((asset) => asset.kind === "cash" ? `${cashLabel(asset.cash.currency)} ${asset.cash.currency}` : [
+              asset.holding.symbol,
+              asset.holding.name,
+              asset.holding.alias,
+              stockPrimaryLabel(asset.holding),
+              stockSecondaryLabel(asset.holding)
             ].filter(Boolean).join(" "))
           }}
         >
-          {portfolio.holdings.map((holding) => (
-            <tr key={holding.symbol}>
-              <td>
-                <AdminHoldingForm {...holding} />
-              </td>
-              <td>{formatKrw(holding.marketValueKrw)}</td>
+          {assets.map((asset) => (
+            <tr key={asset.id}>
+              <td>{asset.kind === "cash" ? <AdminCashForm cash={asset.cash} /> : <AdminHoldingForm {...asset.holding} />}</td>
+              <td>{formatKrw(asset.marketValueKrw)}</td>
             </tr>
           ))}
         </PaginatedPanelTable>

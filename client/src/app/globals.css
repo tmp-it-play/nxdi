@@ -5647,3 +5647,9 @@ button.ghost.danger {
     flex: 1 1 120px;
   }
 }
+
+.cash-balance-form label { display: block; margin-bottom: 8px; font-weight: 600; }
+.cash-balance-input { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cash-balance-input input { width: 180px; max-width: 100%; }
+.cash-balance-input span { color: var(--color-text-secondary, #64748b); }
+.cash-balance-input button { padding: 8px 14px; }

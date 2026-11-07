@@ -5,6 +5,8 @@ import {
   type HoldingAdjustmentType,
   type HoldingTradeExecution
 } from "../application/apply-holding-trade-service.js";
+import { UpdateCashBalanceService, type CashBalanceInput } from "../application/update-cash-balance-service.js";
+import { portfolioAssetValues, valueCashAsset } from "../domain/cash-assets.js";
 import { PortfolioSnapshotService } from "../application/portfolio-snapshot-service.js";
 import { holdingInitialState } from "../domain/holding-initial-state.js";
 import {
@@ -14,7 +16,7 @@ import {
 import { holdingCostBasisKrw } from "../domain/portfolio-math.js";
 import { mapWithConcurrency } from "./concurrency.js";
 import { summarizePortfolioDividend } from "./dividends.js";
-import { fetchUsdKrwExchangeRate } from "./exchange-rate.js";
+import { fetchUsdKrwExchangeRate, type ExchangeRateSnapshot } from "./exchange-rate.js";
 import { fetchMarketQuote } from "./market-data.js";
 import { withMysqlNamedLock } from "./mysql-named-lock.js";
 import { prisma } from "./prisma.js";
@@ -22,6 +24,7 @@ import { prisma } from "./prisma.js";
 const SNAPSHOT_TIMEZONE_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DAILY_SNAPSHOT_LIMIT = 370;
+const VALUATION_LOCK = "nxdi:portfolio-valuation";
 
 async function recordPortfolioTradeExecution(
   transaction: Prisma.TransactionClient,
@@ -85,6 +88,7 @@ export function normalizeManualPortfolioStore(store: ManualPortfolioStore): Manu
     exchangeRateFetchedAt: store.exchangeRateFetchedAt,
     exchangeRateSource: store.exchangeRateSource,
     updatedAt: store.updatedAt,
+    cashAssets: (store.cashAssets ?? []).map((cash) => valueCashAsset(cash, exchangeRate)),
     holdings: holdings.sort((a, b) => b.marketValueKrw - a.marketValueKrw || a.symbol.localeCompare(b.symbol))
   };
 }
@@ -106,6 +110,15 @@ export function previousPortfolioSnapshotDate(date = new Date()) {
 }
 
 function toPortfolioDailySnapshot(row: {
+  cashBalanceKrw?: number | null;
+  closeCashBalanceKrw?: number | null;
+  cashBalanceUsd?: number | null;
+  closeCashBalanceUsd?: number | null;
+  cashMarketValueKrw?: number | null;
+  closeCashMarketValueKrw?: number | null;
+  cashCostBasisKrw?: number | null;
+  closeCashCostBasisKrw?: number | null;
+
   snapshotDate: string;
   totalMarketValueKrw: number;
   exchangeRate: number;
@@ -117,6 +130,12 @@ function toPortfolioDailySnapshot(row: {
   closeAnnualDividendKrw: number | null;
   observations?: {
     observedAt: Date;
+    exchangeRate?: number | null;
+    cashBalanceKrw?: number | null;
+    cashBalanceUsd?: number | null;
+    cashMarketValueKrw?: number | null;
+    cashCostBasisKrw?: number | null;
+
     totalMarketValueKrw: number;
     costBasisKrw: number | null;
     annualDividendKrw: number | null;
@@ -127,6 +146,14 @@ function toPortfolioDailySnapshot(row: {
 }): PortfolioDailySnapshot {
   return {
     date: row.snapshotDate,
+    cashBalanceKrw: row.cashBalanceKrw ?? undefined,
+    closeCashBalanceKrw: row.closeCashBalanceKrw ?? undefined,
+    cashBalanceUsd: row.cashBalanceUsd ?? undefined,
+    closeCashBalanceUsd: row.closeCashBalanceUsd ?? undefined,
+    cashMarketValueKrw: row.cashMarketValueKrw ?? undefined,
+    closeCashMarketValueKrw: row.closeCashMarketValueKrw ?? undefined,
+    cashCostBasisKrw: row.cashCostBasisKrw ?? undefined,
+    closeCashCostBasisKrw: row.closeCashCostBasisKrw ?? undefined,
     totalMarketValueKrw: row.totalMarketValueKrw,
     exchangeRate: row.exchangeRate,
     costBasisKrw: row.costBasisKrw ?? undefined,
@@ -137,6 +164,11 @@ function toPortfolioDailySnapshot(row: {
     closeAnnualDividendKrw: row.closeAnnualDividendKrw ?? undefined,
     observations: row.observations?.map((observation) => ({
       observedAt: observation.observedAt.toISOString(),
+      exchangeRate: observation.exchangeRate ?? undefined,
+      cashBalanceKrw: observation.cashBalanceKrw ?? undefined,
+      cashBalanceUsd: observation.cashBalanceUsd ?? undefined,
+      cashMarketValueKrw: observation.cashMarketValueKrw ?? undefined,
+      cashCostBasisKrw: observation.cashCostBasisKrw ?? undefined,
       totalMarketValueKrw: observation.totalMarketValueKrw,
       costBasisKrw: observation.costBasisKrw ?? undefined,
       annualDividendKrw: observation.annualDividendKrw ?? undefined
@@ -147,37 +179,27 @@ function toPortfolioDailySnapshot(row: {
   };
 }
 
-async function upsertPortfolioDailySnapshot({
-  snapshotDate,
-  totalMarketValueKrw,
-  exchangeRate,
-  costBasisKrw,
-  annualDividendKrw
-}: {
-  snapshotDate: string;
-  totalMarketValueKrw: number;
-  exchangeRate: number;
-  costBasisKrw?: number;
-  annualDividendKrw?: number;
-}) {
+async function writePortfolioDailySnapshot(
+  db: Prisma.TransactionClient,
+  store: ManualPortfolioStore,
+  observedAt: Date
+) {
+  const portfolio = overviewFromStore(store);
+  const summary = await summarizePortfolioDividend(portfolio, db);
+  const { totalMarketValueKrw, cashBalanceKrw, cashBalanceUsd, cashMarketValueKrw, cashCostBasisKrw } =
+    portfolioAssetValues(store.holdings, store.cashAssets);
   const valuation = {
-    totalMarketValueKrw,
-    costBasisKrw: costBasisKrw ?? null,
-    annualDividendKrw: annualDividendKrw ?? null
+    totalMarketValueKrw, cashBalanceKrw, cashBalanceUsd, cashMarketValueKrw, cashCostBasisKrw,
+    exchangeRate: store.exchangeRate,
+    costBasisKrw: summary.costBasisKrw ?? null,
+    annualDividendKrw: summary.annualDividendKrw ?? null
   };
-  const locked = await withMysqlNamedLock(`nxdi:snapshot:${snapshotDate}`, async () => {
-    const values = {
-      ...valuation,
-      exchangeRate,
-      observations: { create: { ...valuation, observedAt: new Date() } }
-    };
-    await prisma.portfolioDailySnapshot.upsert({
-      where: { snapshotDate },
-      create: { snapshotDate, ...values },
-      update: values
-    });
-  }, 5);
-  if (!locked.acquired) throw new Error(`Could not acquire snapshot lock: ${snapshotDate}`);
+  const snapshotDate = portfolioSnapshotDate(observedAt);
+  const values = { ...valuation, observations: { create: { ...valuation, observedAt } } };
+  await db.portfolioDailySnapshot.upsert({
+    where: { snapshotDate }, create: { snapshotDate, ...values }, update: values
+  });
+  return portfolio;
 }
 
 export async function finalizePortfolioDailySnapshot(snapshotDate = portfolioSnapshotDate()) {
@@ -191,6 +213,10 @@ export async function finalizePortfolioDailySnapshot(snapshotDate = portfolioSna
           closeExchangeRate: values.exchangeRate,
           closeCostBasisKrw: values.costBasisKrw,
           closeAnnualDividendKrw: values.annualDividendKrw,
+          closeCashBalanceKrw: values.cashBalanceKrw,
+          closeCashBalanceUsd: values.cashBalanceUsd,
+          closeCashMarketValueKrw: values.cashMarketValueKrw,
+          closeCashCostBasisKrw: values.cashCostBasisKrw,
           closedAt: values.closedAt
         }
       });
@@ -198,7 +224,7 @@ export async function finalizePortfolioDailySnapshot(snapshotDate = portfolioSna
     }
   });
   const locked = await withMysqlNamedLock(
-    `nxdi:snapshot:${snapshotDate}`,
+    VALUATION_LOCK,
     () => service.finalize(snapshotDate),
     5
   );
@@ -206,8 +232,8 @@ export async function finalizePortfolioDailySnapshot(snapshotDate = portfolioSna
   return locked.value;
 }
 
-async function readPortfolioDailySnapshots(includeObservations: boolean) {
-  const rows = await prisma.portfolioDailySnapshot.findMany({
+async function readPortfolioDailySnapshots(includeObservations: boolean, db: Prisma.TransactionClient = prisma) {
+  const rows = await db.portfolioDailySnapshot.findMany({
     orderBy: { snapshotDate: "desc" },
     take: DAILY_SNAPSHOT_LIMIT,
     include: { observations: includeObservations && { orderBy: { id: "asc" } } }
@@ -218,13 +244,17 @@ async function readPortfolioDailySnapshots(includeObservations: boolean) {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-export async function readManualPortfolioStore(): Promise<ManualPortfolioStore> {
-  const [exchangeRateSnapshot, holdings] = await Promise.all([
-    fetchUsdKrwExchangeRate(),
-    prisma.portfolioHolding.findMany({ orderBy: { symbol: "asc" } })
+export async function readManualPortfolioStore(
+  db: Prisma.TransactionClient = prisma,
+  rate?: ExchangeRateSnapshot
+): Promise<ManualPortfolioStore> {
+  const [exchangeRateSnapshot, holdings, cashRows] = await Promise.all([
+    rate ?? fetchUsdKrwExchangeRate(),
+    db.portfolioHolding.findMany({ orderBy: { symbol: "asc" } }),
+    db.portfolioCashAsset.findMany({ orderBy: { currency: "asc" } })
   ]);
   const latestUpdatedAt =
-    holdings.reduce<Date | null>(
+    [...holdings, ...cashRows].reduce<Date | null>(
       (latest, holding) => (!latest || holding.updatedAt > latest ? holding.updatedAt : latest),
       null
     ) ?? new Date();
@@ -234,6 +264,14 @@ export async function readManualPortfolioStore(): Promise<ManualPortfolioStore> 
     exchangeRateFetchedAt: exchangeRateSnapshot.fetchedAt,
     exchangeRateSource: exchangeRateSnapshot.source,
     updatedAt: latestUpdatedAt.toISOString(),
+    cashAssets: cashRows.map((cash) => valueCashAsset({
+      currency: cash.currency as "KRW" | "USD",
+      balance: Number(cash.balance),
+      initialBalance: Number(cash.initialBalance),
+      initialCostBasisKrw: Number(cash.initialCostBasisKrw),
+      version: cash.version,
+      updatedAt: cash.updatedAt.toISOString()
+    }, exchangeRateSnapshot.rate)),
     holdings: holdings.map((holding) => ({
       symbol: holding.symbol,
       name: holding.name,
@@ -340,10 +378,15 @@ export async function refreshPortfolioMarketSnapshot() {
       marketPriceRefresh.skipped.map((item) => item.symbol)
     );
   }
-  const portfolio = await getManualPortfolioOverview();
-  const snapshotDate = portfolioSnapshotDate();
-
-  await writePortfolioDailySnapshot(portfolio, snapshotDate);
+  const rate = await fetchUsdKrwExchangeRate();
+  const locked = await withMysqlNamedLock(VALUATION_LOCK, () => prisma.$transaction(async (db) => {
+    const observedAt = new Date();
+    const store = await readManualPortfolioStore(db, rate);
+    const portfolio = await writePortfolioDailySnapshot(db, store, observedAt);
+    return { portfolio, snapshotDate: portfolioSnapshotDate(observedAt) };
+  }, { isolationLevel: "RepeatableRead" }), 5);
+  if (!locked.acquired) throw new Error("Could not acquire portfolio valuation lock");
+  const { portfolio, snapshotDate } = locked.value;
 
   return {
     status: "refreshed" as const,
@@ -368,23 +411,57 @@ export async function finalizePreviousPortfolioDailySnapshot(date = new Date()) 
   };
 }
 
-export async function getManualPortfolioOverview({ includeObservations = false } = {}): Promise<PortfolioOverview> {
-  const [store, dailySnapshots] = await Promise.all([
-    readManualPortfolioStore(),
-    readPortfolioDailySnapshots(includeObservations)
-  ]);
-  const totalMarketValueKrw = store.holdings.reduce((sum, holding) => sum + holding.marketValueKrw, 0);
-
+function overviewFromStore(store: ManualPortfolioStore, dailySnapshots: PortfolioDailySnapshot[] = []): PortfolioOverview {
   return {
     source: "manual",
     fetchedAt: store.updatedAt,
     exchangeRate: store.exchangeRate,
     exchangeRateFetchedAt: store.exchangeRateFetchedAt ?? new Date(0).toISOString(),
     exchangeRateSource: store.exchangeRateSource ?? "unavailable",
-    totalMarketValueKrw,
+    ...portfolioAssetValues(store.holdings, store.cashAssets),
     dailySnapshots,
-    holdings: store.holdings
+    holdings: store.holdings,
+    cashAssets: store.cashAssets ?? []
   };
+}
+
+export async function getManualPortfolioOverview({ includeObservations = false } = {}): Promise<PortfolioOverview> {
+  const rate = await fetchUsdKrwExchangeRate();
+  return prisma.$transaction(async (db) => {
+    const [store, snapshots] = await Promise.all([
+      readManualPortfolioStore(db, rate), readPortfolioDailySnapshots(includeObservations, db)
+    ]);
+    return overviewFromStore(store, snapshots);
+  }, { isolationLevel: "RepeatableRead" });
+}
+
+export async function updateCashBalance(input: CashBalanceInput) {
+  const service = new UpdateCashBalanceService({
+    withTransaction: async (work) => {
+      const rate = await fetchUsdKrwExchangeRate();
+      const locked = await withMysqlNamedLock(VALUATION_LOCK, () => prisma.$transaction(async (db) => {
+        const observedAt = new Date();
+        return work({
+          find: async (currency) => {
+            const row = await db.portfolioCashAsset.findUnique({ where: { currency } });
+            return row ? { balance: Number(row.balance), version: row.version } : null;
+          },
+          update: async (currency, balance, version) => {
+            const result = await db.portfolioCashAsset.updateMany({
+              where: { currency, version }, data: { balance, version: { increment: 1 } }
+            });
+            return result.count === 1;
+          },
+          recordSnapshot: async () => {
+            await writePortfolioDailySnapshot(db, await readManualPortfolioStore(db, rate), observedAt);
+          }
+        });
+      }, { isolationLevel: "Serializable" }), 5);
+      if (!locked.acquired) throw new Error("Could not acquire portfolio valuation lock");
+      return locked.value;
+    }
+  });
+  return service.execute(input);
 }
 
 export async function readMonthEndPortfolioMarketValueKrw(dividendMonth: string) {
@@ -434,19 +511,7 @@ export async function readRealizedProfitLoss(symbol?: string): Promise<RealizedP
 
 export async function readPortfolioMarketValueKrw() {
   const store = await readManualPortfolioStore();
-  return store.holdings.reduce((sum, holding) => sum + holding.marketValueKrw, 0);
-}
-
-async function writePortfolioDailySnapshot(portfolio: PortfolioOverview, snapshotDate = portfolioSnapshotDate()) {
-  const dividendSummary = await summarizePortfolioDividend(portfolio);
-
-  await upsertPortfolioDailySnapshot({
-    snapshotDate,
-    totalMarketValueKrw: portfolio.totalMarketValueKrw,
-    exchangeRate: portfolio.exchangeRate,
-    costBasisKrw: dividendSummary.costBasisKrw,
-    annualDividendKrw: dividendSummary.annualDividendKrw
-  });
+  return portfolioAssetValues(store.holdings, store.cashAssets).totalMarketValueKrw;
 }
 
 export async function upsertManualHolding(input: Omit<Holding, "marketValue" | "marketValueKrw">) {

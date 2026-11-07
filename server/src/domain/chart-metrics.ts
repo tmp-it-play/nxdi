@@ -43,6 +43,20 @@ export function changeRateFromSnapshots(snapshots: PortfolioDailySnapshot[]) {
   return (latest.totalMarketValueKrw - previousClose) / previousClose;
 }
 
+/** Compares today's whole portfolio with exactly the previous KST day's confirmed value. */
+export function portfolioDailyChangeRate(
+  totalMarketValueKrw: number,
+  snapshots: PortfolioDailySnapshot[],
+  now: Date
+) {
+  const yesterday = new Date(now.getTime() + 9 * 60 * 60 * 1000 - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const previous = snapshots.find((snapshot) => snapshot.date === yesterday);
+  const close = previous?.closeTotalMarketValueKrw;
+  if (!previous?.closedAt || close === undefined || !Number.isFinite(close) || close <= 0 ||
+      !Number.isFinite(totalMarketValueKrw) || totalMarketValueKrw < 0) return undefined;
+  return (totalMarketValueKrw - close) / close;
+}
+
 function previousCloseFromChart(chart?: MarketChart | null) {
   const previousCandleClose = chart?.candles.at(-2)?.close;
   if (typeof previousCandleClose === "number" && previousCandleClose > 0) {
