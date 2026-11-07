@@ -30,7 +30,7 @@ import { stockFullLabel, stockPrimaryLabel, stockSecondaryLabel } from "@/lib/st
 import { cashLabel, portfolioAssets } from "@/lib/portfolio-assets";
 
 const HOME_HOLDINGS_PAGE_SIZE = 8;
-const PORTFOLIO_CHART_TOP_HOLDINGS = 19;
+const PORTFOLIO_CHART_TOP_ASSETS = 19;
 
 function formatPercent(value?: number) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "-";
@@ -67,32 +67,26 @@ export default async function Home() {
   } = home;
   const assets = portfolioAssets(portfolio);
   const currentDividendYield = portfolioDividend.dividendYield;
-  const sortedPortfolioAllocation = [...portfolio.holdings]
-    .filter((holding) => holding.marketValueKrw > 0)
-    .sort((a, b) => b.marketValueKrw - a.marketValueKrw || a.symbol.localeCompare(b.symbol));
-  const otherPortfolioAllocation = sortedPortfolioAllocation.slice(PORTFOLIO_CHART_TOP_HOLDINGS);
+  const sortedPortfolioAllocation = assets.filter((asset) => asset.marketValueKrw > 0);
+  const otherPortfolioAllocation = sortedPortfolioAllocation.slice(PORTFOLIO_CHART_TOP_ASSETS);
   const portfolioAllocation: CompositionChartItem[] = sortedPortfolioAllocation
-    .slice(0, PORTFOLIO_CHART_TOP_HOLDINGS)
-    .map((holding) => ({
-      id: holding.symbol,
-      label: stockPrimaryLabel(holding),
-      description: stockSecondaryLabel(holding),
-      href: `/stocks/${encodeURIComponent(holding.symbol)}`,
-      value: holding.marketValueKrw
+    .slice(0, PORTFOLIO_CHART_TOP_ASSETS)
+    .map((asset) => ({
+      id: asset.id,
+      label: asset.kind === "cash" ? cashLabel(asset.cash.currency) : stockPrimaryLabel(asset.holding),
+      description: asset.kind === "cash" ? asset.cash.currency : stockSecondaryLabel(asset.holding),
+      href: asset.kind === "cash" ? undefined : `/stocks/${encodeURIComponent(asset.holding.symbol)}`,
+      value: asset.marketValueKrw
     }));
   if (otherPortfolioAllocation.length > 0) {
     portfolioAllocation.push({
       id: "__other__",
       label: "기타",
-      description: `${otherPortfolioAllocation.length}개 종목 합산`,
+      description: `${otherPortfolioAllocation.length}개 자산 합산`,
       href: undefined,
-      value: otherPortfolioAllocation.reduce((sum, holding) => sum + holding.marketValueKrw, 0)
+      value: otherPortfolioAllocation.reduce((sum, asset) => sum + asset.marketValueKrw, 0)
     });
   }
-  portfolioAllocation.push(...(portfolio.cashAssets ?? []).filter((cash) => cash.marketValueKrw > 0).map((cash) => ({
-    id: `cash:${cash.currency}`, label: cashLabel(cash.currency), description: cash.currency,
-    href: undefined, value: cash.marketValueKrw
-  })));
   return (
     <AppShell className="home-shell">
       <ToastStack messages={flashMessages} clearCookieName={FLASH_COOKIE_NAME} />

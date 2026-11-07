@@ -199,7 +199,7 @@ export default async function PortfolioCertificatePage() {
                         <tr key={asset.id}>
                           <td>{startIndex + index + 1}</td><td><strong>{cashLabel(asset.cash.currency)}</strong></td>
                           <td>{asset.cash.currency}</td><td>현금성 자산</td>
-                          <td>{formatNumber(asset.cash.balance, asset.cash.currency === "USD" ? 2 : 0)} {asset.cash.currency}</td>
+                          <td>-</td>
                           <td>—</td><td>{formatKrw(asset.marketValueKrw)}</td>
                           <td>{formatNumber(totalMarketValueKrw > 0 ? asset.marketValueKrw / totalMarketValueKrw * 100 : 0, 2)}%</td>
                         </tr>

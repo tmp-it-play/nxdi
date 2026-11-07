@@ -2248,6 +2248,11 @@ button.investment-intake-paused:disabled {
   color: var(--danger);
 }
 
+.cash-summary em {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .inline-fields.exchange {
   grid-template-columns: minmax(180px, 260px) auto;
   min-width: 0;
@@ -3354,6 +3359,17 @@ button.investment-intake-paused:disabled {
   overflow: auto;
   padding: var(--tds-space-5);
   width: min(880px, calc(100vw - 40px));
+}
+
+.cash-balance-modal {
+  border: 0;
+  color: var(--text);
+  margin: auto;
+  width: min(480px, calc(100vw - 40px));
+}
+
+.cash-balance-modal::backdrop {
+  background: rgba(17, 24, 39, 0.34);
 }
 
 .holding-delete-confirmation-backdrop {
@@ -5629,6 +5645,11 @@ button.ghost.danger {
     width: 100%;
   }
 
+  .cash-balance-modal {
+    margin: auto 0 0;
+    max-width: 100%;
+  }
+
   .holding-modal-grid,
   .holding-trade-grid,
   .holding-trade-result,
@@ -5647,9 +5668,3 @@ button.ghost.danger {
     flex: 1 1 120px;
   }
 }
-
-.cash-balance-form label { display: block; margin-bottom: 8px; font-weight: 600; }
-.cash-balance-input { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.cash-balance-input input { width: 180px; max-width: 100%; }
-.cash-balance-input span { color: var(--color-text-secondary, #64748b); }
-.cash-balance-input button { padding: 8px 14px; }
