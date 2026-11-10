@@ -137,7 +137,7 @@ export default async function AdminPage() {
   } = dashboard;
   const flashMessages = await getFlashMessages();
   const notifications = await getAdminNotifications().catch(() => null);
-  const assets = portfolioAssets(portfolio);
+  const assets = portfolioAssets(portfolio, { includeZeroBalanceCash: true });
   const externalNetPrincipal = investorBalances.reduce((sum, balance) => sum + balance.netPrincipalKrw, 0);
   const externalTotalCapital = investorBalances.reduce((sum, balance) => sum + balance.totalBalanceKrw, 0);
   const dividendRecordsBySymbol = new Map(

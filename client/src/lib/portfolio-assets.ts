@@ -8,9 +8,14 @@ export function cashLabel(currency: "KRW" | "USD") {
   return currency === "KRW" ? "원화 현금" : "달러 현금";
 }
 
-export function portfolioAssets(portfolio: Pick<PortfolioOverview, "holdings" | "cashAssets">): PortfolioAsset[] {
+export function portfolioAssets(
+  portfolio: Pick<PortfolioOverview, "holdings" | "cashAssets">,
+  { includeZeroBalanceCash = false }: { includeZeroBalanceCash?: boolean } = {}
+): PortfolioAsset[] {
   return [
     ...portfolio.holdings.map((holding): PortfolioAsset => ({ kind: "holding", id: holding.symbol, marketValueKrw: holding.marketValueKrw, holding })),
-    ...(portfolio.cashAssets ?? []).map((cash): PortfolioAsset => ({ kind: "cash", id: `cash:${cash.currency}`, marketValueKrw: cash.marketValueKrw, cash }))
+    ...(portfolio.cashAssets ?? [])
+      .filter((cash) => includeZeroBalanceCash || cash.balance !== 0)
+      .map((cash): PortfolioAsset => ({ kind: "cash", id: `cash:${cash.currency}`, marketValueKrw: cash.marketValueKrw, cash }))
   ].sort((a, b) => b.marketValueKrw - a.marketValueKrw || a.id.localeCompare(b.id));
 }
