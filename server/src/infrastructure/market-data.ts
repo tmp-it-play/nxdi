@@ -80,6 +80,7 @@ type YahooChartMeta = {
 type YahooChartResult = {
   meta?: YahooChartMeta;
   timestamp?: number[];
+  events?: { dividends?: Record<string, YahooDividendEvent> };
   indicators?: {
     quote?: Array<{
       open?: Array<number | null>;
@@ -724,7 +725,9 @@ async function fetchYahooDividendRecord(symbol: string): Promise<DividendRecord 
     });
     if (!response.ok) continue;
 
-    const json = await response.json() as { chart?: { result?: Array<{ meta?: YahooChartMeta; events?: { dividends?: Record<string, YahooDividendEvent> } }> } };
+    const json = await response.json() as { chart?: { result?: YahooChartResult[]; error?: unknown } };
+    if (json.chart?.error) continue;
+
     const result = json.chart?.result?.[0];
     const dividends = result?.events?.dividends;
     const rows = Object.values(dividends ?? {})
@@ -732,10 +735,16 @@ async function fetchYahooDividendRecord(symbol: string): Promise<DividendRecord 
       .sort((a, b) => Number(b.date) - Number(a.date))
       .slice(0, 12);
 
-    if (rows.length === 0) continue;
+    const regularMarketPrice = result?.meta?.regularMarketPrice ?? result?.meta?.chartPreviousClose;
+    if (rows.length === 0) {
+      const verifiedSecurity = result?.meta?.symbol?.toUpperCase() === yahooSymbol &&
+        Array.isArray(result.timestamp) &&
+        result.timestamp.some((time) => Number.isFinite(time) && time > 0) &&
+        typeof regularMarketPrice === "number" && Number.isFinite(regularMarketPrice) && regularMarketPrice > 0;
+      if (!verifiedSecurity || Object.keys(dividends ?? {}).length > 0) continue;
+    }
 
     const annualDividendPerShare = annualDividendFromYahooRows(rows);
-    const regularMarketPrice = result?.meta?.regularMarketPrice ?? result?.meta?.chartPreviousClose;
 
     return {
       symbol: normalizeKrSecurityCode(normalized) ? normalizeKrSecurityCode(normalized) ?? normalized : normalized,
@@ -748,8 +757,10 @@ async function fetchYahooDividendRecord(symbol: string): Promise<DividendRecord 
       expectedPaymentMonths: [
         ...new Set(rows.map((row) => new Date(Number(row.date) * 1000).getMonth() + 1))
       ].sort((a, b) => a - b),
-      lastDividendPerShare: Number(rows[0]?.amount ?? 0),
-      memo: "Yahoo Finance 배당 이력에서 추정됨. 지급일/기준일은 별도 검증 필요"
+      lastDividendPerShare: rows.length > 0 ? Number(rows[0]?.amount) : undefined,
+      memo: rows.length > 0
+        ? "Yahoo Finance 배당 이력에서 추정됨. 지급일/기준일은 별도 검증 필요"
+        : "Yahoo Finance 시세 및 배당 이력 조회 완료. 지급 이력이 없어 연 배당 0원으로 반영"
     };
   }
 
