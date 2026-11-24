@@ -170,7 +170,7 @@ export default async function PortfolioCertificatePage() {
                   </div>
                   <div>
                     <dt>보유 종목 수</dt>
-                    <dd>{holdings.length}개 종목</dd>
+                    <dd>{assets.length}개 종목</dd>
                   </div>
                 </dl>
               </section>
