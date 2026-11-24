@@ -2975,33 +2975,31 @@ button.investment-intake-paused:disabled {
 }
 
 .certificate-issuer {
-  display: grid;
-  gap: 3mm;
-  grid-template-areas: "label mark";
+  align-items: center;
+  display: flex;
   justify-content: center;
   margin: 7mm auto 0;
-  place-items: center;
 }
 
 .certificate-issuer > span {
   color: var(--certificate-ink);
   font-size: 8.5pt;
   font-weight: 700;
-  grid-area: label;
+  margin-inline-end: 3mm;
 }
 
 .certificate-issuer > strong {
   font-family: Georgia, "Times New Roman", serif;
   font-size: 15pt;
-  grid-area: mark;
   letter-spacing: 0.05em;
 }
 
 .certificate-seal-image {
-  grid-area: mark;
   height: auto;
+  margin-inline-start: -8.3mm;
   mix-blend-mode: multiply;
   opacity: 0.85;
+  transform: translateY(-2.1mm) rotate(-6deg);
   width: 18mm;
 }
 
