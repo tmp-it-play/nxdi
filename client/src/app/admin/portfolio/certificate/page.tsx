@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Metadata } from "next";
-import Image from "next/image";
 import { redirect } from "next/navigation";
+import { CertificateIssuer } from "@/app/admin/CertificateIssuer";
 import { CertificatePrintActions } from "@/app/admin/CertificatePrintActions";
 import { getAdminDashboard } from "@/lib/api";
 import { FUND_KOREAN_NAME, FUND_NAME, FUND_TICKER } from "@/lib/brand";
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 const KST_TIME_ZONE = "Asia/Seoul";
 const REGULAR_PAGE_CAPACITY = 14;
-const FINAL_PAGE_CAPACITY = 8;
+const FINAL_PAGE_CAPACITY = 6;
 
 function certificateDateParts(value: Date) {
   const parts = new Intl.DateTimeFormat("ko-KR", {
@@ -175,7 +175,7 @@ export default async function PortfolioCertificatePage() {
                 </dl>
               </section>
 
-              <section className="certificate-section portfolio-holdings-section" aria-labelledby={`portfolio-holdings-heading-${pageIndex}`}>
+              <section className="certificate-section" aria-labelledby={`portfolio-holdings-heading-${pageIndex}`}>
                 <div className="certificate-section-heading">
                   <h2 id={`portfolio-holdings-heading-${pageIndex}`}>운영종목 보유 내역</h2>
                   <span>(평가액 단위: 원)</span>
@@ -269,29 +269,7 @@ export default async function PortfolioCertificatePage() {
                       확인되는 운영종목과 현금성 자산의 원장 기록과 일치함을 증명합니다.
                     </p>
                     <time dateTime={issuedAt.toISOString()}>{formatCertificateDate(issuedAt)}</time>
-                    <div className="certificate-issuer">
-                      <span>발급자</span>
-                      <span className="certificate-issuer-signature">
-                        <Image
-                          alt="김태은 서명"
-                          className="certificate-signature-image"
-                          height={270}
-                          priority
-                          src="/certificate/kim-taeeun-signature-print.png"
-                          unoptimized
-                          width={666}
-                        />
-                        <Image
-                          alt="김태은인 직인"
-                          className="certificate-seal-image"
-                          height={1308}
-                          priority
-                          src="/certificate/kim-taeeun-official-seal-print.png"
-                          unoptimized
-                          width={1262}
-                        />
-                      </span>
-                    </div>
+                    <CertificateIssuer />
                   </section>
 
                   <aside className="certificate-notice portfolio-certificate-notice">

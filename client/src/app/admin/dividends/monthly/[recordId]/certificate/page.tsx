@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
+import { CertificateIssuer } from "@/app/admin/CertificateIssuer";
 import { CertificatePrintActions } from "@/app/admin/CertificatePrintActions";
 import { getAdminDashboard } from "@/lib/api";
 import { FUND_KOREAN_NAME, FUND_NAME, FUND_TICKER } from "@/lib/brand";
@@ -170,29 +170,7 @@ export default async function MonthlyDividendCertificatePage({ params }: Certifi
             배당수익의 원화 환산 합계임을 증명합니다.
           </p>
           <time dateTime={issuedOn.replaceAll("/", "-")}>{issuedOn}</time>
-          <div className="certificate-issuer">
-            <span>발급자</span>
-            <span className="certificate-issuer-signature">
-              <Image
-                alt="김태은 서명"
-                className="certificate-signature-image"
-                height={270}
-                priority
-                src="/certificate/kim-taeeun-signature-print.png"
-                unoptimized
-                width={666}
-              />
-              <Image
-                alt="김태은인 직인"
-                className="certificate-seal-image"
-                height={1308}
-                priority
-                src="/certificate/kim-taeeun-official-seal-print.png"
-                unoptimized
-                width={1262}
-              />
-            </span>
-          </div>
+          <CertificateIssuer />
         </section>
 
         <aside className="certificate-notice">

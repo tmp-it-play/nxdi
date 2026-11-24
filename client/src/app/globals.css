@@ -2625,27 +2625,6 @@ button.investment-intake-paused:disabled {
   letter-spacing: 0.09em;
 }
 
-.certificate-issuer {
-  align-items: baseline;
-  display: flex;
-  gap: 6mm;
-  margin-top: 8mm;
-  min-width: 75mm;
-  position: relative;
-}
-
-.certificate-issuer > span {
-  color: var(--certificate-muted);
-  font-size: 8pt;
-  font-weight: 700;
-}
-
-.certificate-issuer > strong {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 15pt;
-  letter-spacing: 0.05em;
-}
-
 .certificate-seal {
   align-items: center;
   border: 2.5px solid #ad1f2a;
@@ -2996,41 +2975,34 @@ button.investment-intake-paused:disabled {
 }
 
 .certificate-issuer {
-  align-items: center;
+  display: grid;
   gap: 3mm;
+  grid-template-areas: "label mark";
   justify-content: center;
   margin: 7mm auto 0;
-  min-height: 18mm;
-  min-width: 0;
-  width: 60mm;
+  place-items: center;
 }
 
 .certificate-issuer > span {
   color: var(--certificate-ink);
   font-size: 8.5pt;
+  font-weight: 700;
+  grid-area: label;
 }
 
-.certificate-issuer-signature {
-  display: block;
-  height: 16mm;
-  position: relative;
-  width: 27mm;
-}
-
-.certificate-signature-image {
-  height: auto;
-  left: 0;
-  position: absolute;
-  top: 4.75mm;
-  width: 16mm;
+.certificate-issuer > strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15pt;
+  grid-area: mark;
+  letter-spacing: 0.05em;
 }
 
 .certificate-seal-image {
+  grid-area: mark;
   height: auto;
-  left: 10.5mm;
-  position: absolute;
-  top: 1.2mm;
-  width: 13.5mm;
+  mix-blend-mode: multiply;
+  opacity: 0.85;
+  width: 18mm;
 }
 
 .certificate-notice {
@@ -3082,8 +3054,12 @@ button.investment-intake-paused:disabled {
   break-after: auto;
 }
 
-.portfolio-holdings-section {
-  margin-top: 5mm;
+.portfolio-certificate-sheet .certificate-form-header h1 {
+  margin: 3mm 0 4mm;
+}
+
+.portfolio-certificate-sheet .certificate-section {
+  margin-top: 3.5mm;
 }
 
 .portfolio-certificate-table {
@@ -3165,6 +3141,10 @@ button.investment-intake-paused:disabled {
   word-break: break-all;
 }
 
+.portfolio-certificate-approval {
+  flex: none;
+}
+
 .portfolio-certificate-approval > p {
   font-size: 8.5pt;
   line-height: 1.65;
@@ -3173,7 +3153,6 @@ button.investment-intake-paused:disabled {
 
 .portfolio-certificate-approval .certificate-issuer {
   margin-top: 3mm;
-  min-height: 13mm;
 }
 
 .portfolio-certificate-notice {
