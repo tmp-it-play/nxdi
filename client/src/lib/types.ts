@@ -192,16 +192,6 @@ export type MarketCandle = {
   close: number;
 };
 
-export type MarketChart = {
-  symbol: string;
-  currency: "KRW" | "USD";
-  marketCountry: MarketCode;
-  candles: MarketCandle[];
-  previousClose?: number;
-  regularMarketPrice?: number;
-  changeRate?: number;
-};
-
 export type DisclosureTrade = {
   id: string;
   disclosureId: string;

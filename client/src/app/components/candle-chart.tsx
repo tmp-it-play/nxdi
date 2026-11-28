@@ -16,8 +16,7 @@ import type {
   MouseEventParams,
   Time
 } from "lightweight-charts";
-import { CandleChart as SvgCandleChart } from "@/app/components/stock-chart";
-import { formatCurrency } from "@/lib/format";
+import { CandleChart as SvgCandleChart, formatValue } from "@/app/components/stock-chart";
 import type { MarketCandle } from "@/lib/types";
 
 type ValueFormat = "number" | "krw" | "usd" | "percent";
@@ -25,7 +24,6 @@ type DateGranularity = "day" | "month";
 
 type CandleChartProps = {
   candles: MarketCandle[];
-  size?: "compact" | "detail";
   label?: string;
   valueFormat?: ValueFormat;
   dateGranularity?: DateGranularity;
@@ -35,19 +33,6 @@ type NormalizedCandle = MarketCandle & {
   date: string;
   time: BusinessDay;
 };
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("ko-KR", {
-    maximumFractionDigits: 2
-  }).format(value);
-}
-
-function formatValue(value: number, format: ValueFormat) {
-  if (format === "krw") return formatCurrency(value, "KRW");
-  if (format === "usd") return formatCurrency(value, "USD");
-  if (format === "percent") return `${formatNumber(value * 100)}%`;
-  return formatNumber(value);
-}
 
 function formatExactDate(value: string, granularity: DateGranularity) {
   if (granularity === "month") {
@@ -135,7 +120,6 @@ function candleTone(candle: MarketCandle) {
 export function CandleChart(props: CandleChartProps) {
   const {
     candles,
-    size = "compact",
     label = "캔들 차트",
     valueFormat = "number",
     dateGranularity = "day"
@@ -166,7 +150,7 @@ export function CandleChart(props: CandleChartProps) {
   );
 
   useEffect(() => {
-    if (size !== "detail" || normalizedCandles.length === 0) return;
+    if (normalizedCandles.length === 0) return;
 
     let disposed = false;
     let chart: IChartApi | null = null;
@@ -309,11 +293,7 @@ export function CandleChart(props: CandleChartProps) {
       disposed = true;
       destroyChart();
     };
-  }, [dateGranularity, normalizedCandles, size, spansMultipleYears, valueFormat]);
-
-  if (size !== "detail") {
-    return <SvgCandleChart {...props} />;
-  }
+  }, [dateGranularity, normalizedCandles, spansMultipleYears, valueFormat]);
 
   if (normalizedCandles.length === 0) {
     return <div className="market-chart empty-chart">차트 데이터 없음</div>;

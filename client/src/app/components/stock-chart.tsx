@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatNumber } from "@/lib/format";
 import type { MarketCandle } from "@/lib/types";
 
 type ChartPoint = {
@@ -45,13 +45,7 @@ function formatAxisDate(value: string, showYear: boolean, granularity: DateGranu
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("ko-KR", {
-    maximumFractionDigits: 2
-  }).format(value);
-}
-
-function formatValue(value: number, format: ValueFormat) {
+export function formatValue(value: number, format: ValueFormat) {
   if (format === "krw") return formatCurrency(value, "KRW");
   if (format === "usd") return formatCurrency(value, "USD");
   if (format === "percent") return `${formatNumber(value * 100)}%`;
@@ -63,17 +57,13 @@ export function CandleChart({
   size = "compact",
   label,
   valueFormat = "number",
-  dateGranularity = "day",
-  minBodyHeight = 2,
-  bodyRadius
+  dateGranularity = "day"
 }: {
   candles: MarketCandle[];
   size?: "compact" | "detail";
   label?: string;
   valueFormat?: ValueFormat;
   dateGranularity?: DateGranularity;
-  minBodyHeight?: number;
-  bodyRadius?: number;
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -237,7 +227,7 @@ export function CandleChart({
           const openY = y(candle.open);
           const closeY = y(candle.close);
           const rawBodyHeight = Math.abs(openY - closeY);
-          const bodyHeight = Math.max(minBodyHeight, rawBodyHeight);
+          const bodyHeight = Math.max(2, rawBodyHeight);
           const centeredBodyY = Math.min(openY, closeY) - (bodyHeight - rawBodyHeight) / 2;
           const bodyY = Math.max(
             metrics.topPadding,
@@ -266,7 +256,7 @@ export function CandleChart({
                 y={bodyY}
                 width={metrics.candleWidth}
                 height={bodyHeight}
-                rx={bodyRadius ?? (metrics.dense ? 0.8 : 2)}
+                rx={metrics.dense ? 0.8 : 2}
               />
             </g>
           );
