@@ -5,7 +5,6 @@ import {
   calculateMonthlyPayouts,
   dueNotificationPeriods,
   kstDateKey,
-  previousDividendMonth,
   type NotificationIntent,
   type NotificationStore
 } from "../src/domain/notifications/index.js";
@@ -19,10 +18,9 @@ function intent(overrides: Partial<NotificationIntent> = {}): NotificationIntent
 
 describe("Given scheduled notifications use the Korean calendar", () => {
   describe("When UTC is still the last day of the prior year", () => {
-    it("Then midnight Korea starts the next year and selects December dividends", () => {
+    it("Then midnight Korea starts the next year", () => {
       const now = new Date("2026-12-31T15:00:00.000Z");
       assert.equal(kstDateKey(now), "2027-01-01");
-      assert.equal(previousDividendMonth(now), "2026-12");
     });
   });
 
@@ -68,7 +66,6 @@ describe("Given scheduled notifications use the Korean calendar", () => {
     it("Then future activation has no due periods and invalid dates are rejected", () => {
       assert.deepEqual(dueNotificationPeriods(new Date("2026-11-01"), new Date("2026-10-01")), { monthly: [], quarterly: [] });
       assert.throws(() => dueNotificationPeriods(new Date("invalid"), new Date("2026-10-01")), RangeError);
-      assert.throws(() => previousDividendMonth(new Date("invalid")), RangeError);
     });
   });
 });

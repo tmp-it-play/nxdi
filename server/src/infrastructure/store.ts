@@ -139,22 +139,6 @@ export async function createInvestmentIntentSafely(input: InvestmentRequestInput
   return service.execute(input);
 }
 
-export async function createWithdrawalIntent(
-  input: Omit<WithdrawalIntent, "id" | "type" | "status" | "createdAt" | "updatedAt" | "productDocumentVersion" | "productDocumentHash" | "agreedAt">
-) {
-  const row = await prisma.withdrawalIntent.create({
-    data: {
-      ...input,
-      accountNumber: encryptSensitive(input.accountNumber),
-      productDocumentVersion: PRODUCT_DOCUMENT_VERSION,
-      productDocumentHash: PRODUCT_DOCUMENT_SHA256,
-      agreedAt: new Date(),
-      status: "PENDING"
-    }
-  });
-  return toWithdrawalIntent(row);
-}
-
 export async function createWithdrawalIntentSafely(
   input: WithdrawalRequestInput
 ) {
