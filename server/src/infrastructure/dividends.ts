@@ -180,18 +180,6 @@ export async function syncDividendRecordsForSymbols(symbols: string[]) {
   return results;
 }
 
-export async function refreshStaleDividendRecords() {
-  const staleSince = new Date(Date.now() - DIVIDEND_RECORD_STALE_MS);
-  const staleRows = await prisma.dividendRecord.findMany({
-    where: { updatedAt: { lt: staleSince } },
-    select: { symbol: true, memo: true }
-  });
-
-  return syncDividendRecordsForSymbols(
-    staleRows.filter((row) => isMarketBackedDividendMemo(row.memo)).map((row) => row.symbol)
-  );
-}
-
 export async function syncScheduledDividendRecords() {
   const staleSince = new Date(Date.now() - DIVIDEND_RECORD_STALE_MS);
   const [holdings, staleRows] = await Promise.all([
@@ -397,8 +385,4 @@ export async function summarizePortfolioDividend(portfolio: PortfolioOverview, d
         ? (portfolio.totalMarketValueKrw - costBasisKrw) / costBasisKrw
         : undefined
   };
-}
-
-export async function knownDividendRecords() {
-  return readDividendRecords();
 }

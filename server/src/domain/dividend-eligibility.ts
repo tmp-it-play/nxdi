@@ -23,10 +23,3 @@ export function isEligibleForDividendMonth(completedAt: string, dividendMonth: s
   const eligibleFromMonth = dividendEligibleFromMonth(completedAt);
   return typeof eligibleFromMonth === "string" && eligibleFromMonth <= dividendMonth;
 }
-
-export function eligibleDividendIntents<T extends { updatedAt: string }>(
-  intents: readonly T[],
-  dividendMonth: string
-) {
-  return intents.filter((intent) => isEligibleForDividendMonth(intent.updatedAt, dividendMonth));
-}

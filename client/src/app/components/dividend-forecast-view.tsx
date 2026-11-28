@@ -12,8 +12,6 @@ type DividendForecastViewMode = "simulation" | "holding";
 
 const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
 
-export { forecastLinePaymentAmount };
-
 function formatOptionalKrw(value?: number) {
   return typeof value === "number" && Number.isFinite(value) ? formatKrw(value) : "-";
 }

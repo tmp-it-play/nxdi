@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   dividendEligibleFromMonth,
-  eligibleDividendIntents,
   isEligibleForDividendMonth
 } from "../src/domain/dividend-eligibility.js";
 
@@ -35,19 +34,10 @@ describe("DividendEligibilityPolicy", () => {
     });
   });
 
-  describe("given completed intents and a payout month", () => {
-    describe("when eligible intents are selected", () => {
-      it("then excludes acceptance in the same KST month and invalid dates", () => {
-        const intents = [
-          { id: "eligible", updatedAt: "2026-06-30T14:59:59.000Z" },
-          { id: "next-month", updatedAt: "2026-07-01T00:00:00.000Z" },
-          { id: "invalid", updatedAt: "invalid" }
-        ];
-
-        assert.deepEqual(
-          eligibleDividendIntents(intents, "2026-07").map((intent) => intent.id),
-          ["eligible"]
-        );
+  describe("given an invalid completion date or dividend month", () => {
+    describe("when eligibility is calculated", () => {
+      it("then is not eligible", () => {
+        assert.equal(isEligibleForDividendMonth("invalid", "2026-07"), false);
         assert.equal(isEligibleForDividendMonth("2026-06-30T14:59:59.000Z", "2026-13"), false);
       });
     });
