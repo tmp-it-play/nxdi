@@ -131,7 +131,6 @@ export default async function StockDetailPage({ params }: StockDetailProps) {
       <CandleChart
         candles={weeklyCandles}
         label={`${fullLabel} 최근 1년 주봉 캔들 차트`}
-        size="detail"
         valueFormat={holding.currency === "USD" ? "usd" : "krw"}
       />
 
@@ -144,7 +143,6 @@ export default async function StockDetailPage({ params }: StockDetailProps) {
           <CandleChart
             label={`${fullLabel} 보유 수익률 월봉 캔들`}
             candles={returnCandles}
-            size="detail"
             valueFormat="percent"
             dateGranularity="month"
           />
@@ -155,7 +153,6 @@ export default async function StockDetailPage({ params }: StockDetailProps) {
           <CandleChart
             label={`${fullLabel} 배당수익률 월봉 캔들`}
             candles={yieldCandles}
-            size="detail"
             valueFormat="percent"
             dateGranularity="month"
           />

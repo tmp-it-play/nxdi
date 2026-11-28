@@ -25,6 +25,7 @@ import {
   roadmapCategoryLabel,
   roadmapDateKeys,
   roadmapKindLabel,
+  sortRoadmapEvents,
   stripDisclosureTag
 } from "@/lib/roadmap";
 import type {
@@ -71,14 +72,6 @@ type MouseDragState = {
   startScrollLeft: number;
   didDrag: boolean;
 };
-
-function sortEvents(events: RoadmapEvent[]) {
-  return [...events].sort(
-    (left, right) =>
-      left.eventDate.localeCompare(right.eventDate) ||
-      left.createdAt.localeCompare(right.createdAt)
-  );
-}
 
 function addEditorPageDays(dateKey: string, days: number) {
   try {
@@ -299,7 +292,7 @@ export function RoadmapEditor({ events, disclosures, today }: RoadmapEditorProps
   const loadInProgressRef = useRef(false);
   const pendingPrependRef = useRef<{ scrollLeft: number; scrollWidth: number } | null>(null);
   const pendingCenterDateRef = useRef<string | null>(initialAnchorDateRef.current);
-  const [roadmapEvents, setRoadmapEvents] = useState(() => sortEvents(events));
+  const [roadmapEvents, setRoadmapEvents] = useState(() => sortRoadmapEvents(events));
   const [rangeStart, setRangeStart] = useState(() =>
     addEditorPageDays(initialAnchorDateRef.current, -EDITOR_DATE_PAGE_DAYS)
   );
@@ -559,7 +552,7 @@ export function RoadmapEditor({ events, disclosures, today }: RoadmapEditorProps
           })
         }
       );
-      setRoadmapEvents((current) => sortEvents([...current, response.event]));
+      setRoadmapEvents((current) => sortRoadmapEvents([...current, response.event]));
       setSelectedEventId(response.event.id);
       setExpandedDateKeys((current) => new Set(current).add(response.event.eventDate));
       centerDateInTimeline(response.event.eventDate);
@@ -594,7 +587,7 @@ export function RoadmapEditor({ events, disclosures, today }: RoadmapEditorProps
         { method: "PATCH", body: JSON.stringify({ eventDate }) }
       );
       setRoadmapEvents((current) =>
-        sortEvents(current.map((event) => (event.id === eventId ? response.event : event)))
+        sortRoadmapEvents(current.map((event) => (event.id === eventId ? response.event : event)))
       );
       centerDateInTimeline(response.event.eventDate);
       setStatus({
@@ -627,7 +620,7 @@ export function RoadmapEditor({ events, disclosures, today }: RoadmapEditorProps
         { method: "PATCH", body: JSON.stringify(input) }
       );
       setRoadmapEvents((current) =>
-        sortEvents(current.map((event) => (event.id === eventId ? response.event : event)))
+        sortRoadmapEvents(current.map((event) => (event.id === eventId ? response.event : event)))
       );
       if (response.event.eventDate !== currentEvent.eventDate) {
         centerDateInTimeline(response.event.eventDate);

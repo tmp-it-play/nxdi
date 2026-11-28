@@ -105,7 +105,6 @@ export default async function MetricDetailPage({ params }: MetricDetailProps) {
       <CandleChart
         candles={candles}
         label={`${labels.title} ${period} 차트`}
-        size="detail"
         valueFormat={valueFormat}
         dateGranularity={monthly ? "month" : "day"}
       />

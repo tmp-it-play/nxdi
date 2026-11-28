@@ -51,11 +51,6 @@ export type UpdateRoadmapEventInput = {
   label?: string;
 };
 
-export type RoadmapEventDateGroup = {
-  dateKey: string;
-  events: RoadmapEvent[];
-};
-
 export const ROADMAP_HORIZON_DAYS = 30;
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
@@ -141,8 +136,6 @@ export function kstDateKey(date = new Date()) {
   return new Date(date.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10);
 }
 
-export const kstTodayDateKey = kstDateKey;
-
 export function addDaysToDateKey(dateKey: string, days: number) {
   if (!Number.isSafeInteger(days)) throw new RangeError("days must be a safe integer");
 
@@ -163,24 +156,6 @@ export function isRoadmapQueryWindow(fromDateKey: string, throughDateKey: string
   if (!isValidDateKey(fromDateKey) || !isValidDateKey(throughDateKey)) return false;
   if (throughDateKey < fromDateKey) return false;
   return throughDateKey <= addDaysToDateKey(fromDateKey, ROADMAP_HORIZON_DAYS - 1);
-}
-
-export function roadmapDateKeys(
-  fromDateKey = kstDateKey(),
-  throughDateKey = roadmapHorizonEndDate(fromDateKey)
-) {
-  assertDateKey(fromDateKey);
-  assertDateKey(throughDateKey);
-  if (throughDateKey < fromDateKey) return [];
-
-  const keys: string[] = [];
-  let dateKey = fromDateKey;
-  while (dateKey <= throughDateKey) {
-    keys.push(dateKey);
-    if (dateKey === throughDateKey) break;
-    dateKey = addDaysToDateKey(dateKey, 1);
-  }
-  return keys;
 }
 
 export function stripDisclosureTag(title: string) {
@@ -227,29 +202,6 @@ export function deriveRoadmapCategory(title: string, body = ""): RoadmapEventCat
   return "OTHER";
 }
 
-const ROADMAP_KIND_LABELS: Record<RoadmapEventKind, string> = {
-  PLANNED: "예정",
-  COMPLETED: "완료",
-  DELAYED: "연기",
-  CANCELLED: "취소"
-};
-
-const ROADMAP_CATEGORY_LABELS: Record<RoadmapEventCategory, string> = {
-  CAPITAL_INCREASE: "증자",
-  REDUCTION: "감자",
-  REBALANCING: "리밸런싱",
-  TRADE: "매매",
-  OTHER: "기타"
-};
-
-export function roadmapKindLabel(kind: RoadmapEventKind) {
-  return ROADMAP_KIND_LABELS[kind];
-}
-
-export function roadmapCategoryLabel(category: RoadmapEventCategory) {
-  return ROADMAP_CATEGORY_LABELS[category];
-}
-
 export function normalizeRoadmapEventKind(value: string): RoadmapEventKind {
   return ROADMAP_KIND_SET.has(value) ? (value as RoadmapEventKind) : "PLANNED";
 }
@@ -275,30 +227,6 @@ function toRoadmapEvent(row: RoadmapEventRow): RoadmapEvent {
       createdAt: row.disclosure.createdAt.toISOString()
     }
   };
-}
-
-export function sortRoadmapEvents(events: readonly RoadmapEvent[]) {
-  return [...events].sort(
-    (a, b) =>
-      a.eventDate.localeCompare(b.eventDate) ||
-      a.createdAt.localeCompare(b.createdAt) ||
-      a.id.localeCompare(b.id)
-  );
-}
-
-export function groupRoadmapEventsByDate(events: readonly RoadmapEvent[]): RoadmapEventDateGroup[] {
-  const groups: RoadmapEventDateGroup[] = [];
-
-  for (const event of sortRoadmapEvents(events)) {
-    const lastGroup = groups.at(-1);
-    if (lastGroup?.dateKey === event.eventDate) {
-      lastGroup.events.push(event);
-    } else {
-      groups.push({ dateKey: event.eventDate, events: [event] });
-    }
-  }
-
-  return groups;
 }
 
 export async function readRoadmapEvents(options: { from?: string; through?: string } = {}) {

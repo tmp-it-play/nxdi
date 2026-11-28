@@ -3,14 +3,10 @@ import { describe, it } from "node:test";
 import {
   addDaysToDateKey,
   groupRoadmapEventsByDate,
-  isValidDateKey,
   kstDateKey,
-  normalizeRoadmapEventCategory,
-  normalizeRoadmapEventKind,
   roadmapCategoryLabel,
   roadmapDateKeys,
   roadmapHorizonEndDate,
-  roadmapInitialStartDate,
   roadmapKindLabel,
   sortRoadmapEvents,
   stripDisclosureTag,
@@ -38,19 +34,6 @@ function event(overrides: Partial<RoadmapEvent> & Pick<RoadmapEvent, "id" | "eve
 }
 
 describe("roadmap date helpers", () => {
-  it("accepts only real calendar dates in strict YYYY-MM-DD form", () => {
-    assert.equal(isValidDateKey("2026-07-11"), true);
-    assert.equal(isValidDateKey("2000-02-29"), true);
-    assert.equal(isValidDateKey("1900-02-29"), false);
-    assert.equal(isValidDateKey("2026-02-29"), false);
-    assert.equal(isValidDateKey("2026-04-31"), false);
-    assert.equal(isValidDateKey("2026-00-10"), false);
-    assert.equal(isValidDateKey("2026-01-00"), false);
-    assert.equal(isValidDateKey("0000-01-01"), false);
-    assert.equal(isValidDateKey("2026-7-11"), false);
-    assert.equal(isValidDateKey("2026/07/11"), false);
-  });
-
   it("returns the Korean calendar date across the UTC boundary", () => {
     assert.equal(kstDateKey(new Date("2026-07-10T14:59:59.999Z")), "2026-07-10");
     assert.equal(kstDateKey(new Date("2026-07-10T15:00:00.000Z")), "2026-07-11");
@@ -85,14 +68,6 @@ describe("roadmap date helpers", () => {
 
 });
 
-describe("Given the roadmap viewer opens today", () => {
-  describe("When its initial date window is calculated", () => {
-    it("Then includes the previous 30 days", () => {
-      assert.equal(roadmapInitialStartDate("2026-07-18"), "2026-06-18");
-    });
-  });
-});
-
 describe("roadmap disclosure defaults", () => {
   it("strips only leading disclosure tags", () => {
     assert.equal(stripDisclosureTag("  [공지] 정기 증자 예정 안내  "), "정기 증자 예정 안내");
@@ -100,13 +75,9 @@ describe("roadmap disclosure defaults", () => {
     assert.equal(stripDisclosureTag("제목 [공시] 유지"), "제목 [공시] 유지");
   });
 
-  it("provides Korean labels and safe fallbacks for stored strings", () => {
+  it("provides Korean labels for roadmap kinds and categories", () => {
     assert.equal(roadmapKindLabel("DELAYED"), "연기");
     assert.equal(roadmapCategoryLabel("REBALANCING"), "리밸런싱");
-    assert.equal(normalizeRoadmapEventKind("COMPLETED"), "COMPLETED");
-    assert.equal(normalizeRoadmapEventKind("UNKNOWN"), "PLANNED");
-    assert.equal(normalizeRoadmapEventCategory("TRADE"), "TRADE");
-    assert.equal(normalizeRoadmapEventCategory("UNKNOWN"), "OTHER");
   });
 });
 

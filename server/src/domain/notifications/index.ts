@@ -35,10 +35,6 @@ function shiftMonth(month: string, offset: number) {
   return date.toISOString().slice(0, 7);
 }
 
-export function previousDividendMonth(now: Date) {
-  return shiftMonth(kstDateKey(now).slice(0, 7), -1);
-}
-
 export type DueNotificationPeriods = {
   monthly: string[];
   quarterly: Array<{ period: string; status: "DUE" | "SKIPPED" }>;
@@ -79,12 +75,6 @@ function nonnegativeAmount(value: number, label: string, positive = false) {
   if (!Number.isFinite(value) || value < 0 || (positive && value === 0)) {
     throw new RangeError(`${label}은 ${positive ? "0보다 큰" : "0 이상의"} 유한한 금액이어야 합니다.`);
   }
-  return value;
-}
-
-export function validateWholeKrw(value: number, label: string, positive = false) {
-  nonnegativeAmount(value, label, positive);
-  if (!Number.isSafeInteger(value)) throw new RangeError(`${label}은 안전한 범위의 원 단위 정수여야 합니다.`);
   return value;
 }
 

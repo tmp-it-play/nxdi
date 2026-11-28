@@ -326,14 +326,6 @@ button.full,
   position: relative;
 }
 
-.top-section {
-  background: var(--surface);
-  border-bottom-left-radius: var(--tds-radius-xl);
-  border-bottom-right-radius: var(--tds-radius-xl);
-  margin: 0 calc(clamp(var(--tds-space-5), 3vw, 36px) * -1) var(--tds-space-2);
-  padding: 28px clamp(var(--tds-space-5), 3vw, 36px) 24px;
-}
-
 .fund-eyebrow {
   align-items: center;
   color: rgba(255, 255, 255, 0.68);
@@ -375,17 +367,6 @@ button.full,
   font-size: var(--tds-text-md);
   margin: 0;
   max-width: 680px;
-}
-
-.top-section h2 {
-  color: var(--text);
-  font-size: var(--tds-title-md);
-  margin: 0 0 var(--tds-space-2);
-}
-
-.top-section p {
-  color: var(--muted);
-  margin: 0;
 }
 
 .hero-back-link {
@@ -2403,29 +2384,6 @@ button.investment-intake-paused:disabled {
   width: 210mm;
 }
 
-.certificate-frame {
-  border: 1px solid #9fa8b8;
-  inset: 8mm;
-  pointer-events: none;
-  position: absolute;
-}
-
-.certificate-frame::before {
-  border: 3px double #293552;
-  content: "";
-  inset: 2.2mm;
-  position: absolute;
-}
-
-.certificate-document-header {
-  align-items: flex-start;
-  border-bottom: 2px solid var(--certificate-ink);
-  display: flex;
-  justify-content: space-between;
-  padding: 0 1mm 5mm;
-  position: relative;
-}
-
 .certificate-identity {
   align-items: center;
   display: flex;
@@ -2461,117 +2419,6 @@ button.investment-intake-paused:disabled {
   font-size: 6.6pt;
   letter-spacing: 0.035em;
   margin-top: 1mm;
-}
-
-.certificate-document-meta {
-  display: grid;
-  gap: 1.5mm;
-  margin: 0;
-  min-width: 67mm;
-}
-
-.certificate-document-meta div {
-  display: grid;
-  gap: 2mm;
-  grid-template-columns: 17mm 1fr;
-}
-
-.certificate-document-meta dt,
-.certificate-document-meta dd {
-  font-size: 7.4pt;
-  line-height: 1.35;
-  margin: 0;
-}
-
-.certificate-document-meta dt {
-  color: var(--certificate-muted);
-  font-weight: 700;
-}
-
-.certificate-document-meta dd {
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-weight: 700;
-  text-align: right;
-}
-
-.certificate-title-block {
-  margin-top: 22mm;
-  text-align: center;
-}
-
-.certificate-title-block p,
-.certificate-title-block span {
-  color: var(--certificate-muted);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 7pt;
-  font-weight: 700;
-  letter-spacing: 0.28em;
-  margin: 0;
-}
-
-.certificate-title-block h1 {
-  font-family: "Nanum Myeongjo", "Batang", "AppleMyungjo", serif;
-  font-size: 25pt;
-  font-weight: 700;
-  letter-spacing: 0.17em;
-  line-height: 1.3;
-  margin: 4mm 0 3mm;
-  padding-left: 0.17em;
-}
-
-.certificate-statement {
-  font-family: "Nanum Myeongjo", "Batang", "AppleMyungjo", serif;
-  font-size: 10.5pt;
-  line-height: 1.9;
-  margin: 15mm auto 9mm;
-  max-width: 144mm;
-  text-align: center;
-  word-break: keep-all;
-}
-
-.certificate-records {
-  border-top: 2px solid var(--certificate-ink);
-  margin: 0;
-}
-
-.certificate-records > div {
-  align-items: stretch;
-  border-bottom: 1px solid var(--certificate-line);
-  display: grid;
-  grid-template-columns: 50mm 1fr;
-  min-height: 13mm;
-}
-
-.certificate-records dt,
-.certificate-records dd {
-  align-items: center;
-  display: flex;
-  margin: 0;
-  padding: 3mm 4mm;
-}
-
-.certificate-records dt {
-  background: #f4f5f7;
-  border-right: 1px solid var(--certificate-line);
-  font-size: 8.5pt;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-}
-
-.certificate-records dd {
-  font-size: 9.5pt;
-  font-weight: 650;
-}
-
-.certificate-records .certificate-amount-row {
-  min-height: 17mm;
-}
-
-.certificate-records .certificate-amount-row dd {
-  font-family: "Nanum Myeongjo", "Batang", "AppleMyungjo", serif;
-  font-size: 15pt;
-  font-weight: 700;
-  letter-spacing: 0.02em;
 }
 
 .certificate-record-id {
@@ -2625,52 +2472,6 @@ button.investment-intake-paused:disabled {
   letter-spacing: 0.09em;
 }
 
-.certificate-seal {
-  align-items: center;
-  border: 2.5px solid #ad1f2a;
-  border-radius: 50%;
-  bottom: -12mm;
-  color: #ad1f2a;
-  display: flex;
-  flex-direction: column;
-  height: 23mm;
-  justify-content: center;
-  opacity: 0.88;
-  position: absolute;
-  right: -3mm;
-  rotate: -8deg;
-  width: 23mm;
-}
-
-.certificate-seal::before {
-  border: 1px solid #ad1f2a;
-  border-radius: 50%;
-  content: "";
-  inset: 1.2mm;
-  position: absolute;
-}
-
-.certificate-seal span,
-.certificate-seal strong {
-  position: relative;
-  z-index: 1;
-}
-
-.certificate-seal span {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 4.7pt;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  margin-left: 0.12em;
-}
-
-.certificate-seal strong {
-  font-family: "Batang", "AppleMyungjo", serif;
-  font-size: 10.5pt;
-  letter-spacing: 0.08em;
-  margin-left: 0.08em;
-}
-
 .certificate-footer {
   border-top: 1px solid var(--certificate-line);
   color: var(--certificate-muted);
@@ -2704,8 +2505,7 @@ button.investment-intake-paused:disabled {
     padding: 0;
   }
 
-  .certificate-actions,
-  .tds-toast-viewport {
+  .certificate-actions {
     display: none !important;
   }
 
@@ -5529,16 +5329,14 @@ button.ghost.danger {
     min-width: 0;
   }
 
-  .hero-band,
-  .top-section {
+  .hero-band {
     border-bottom-left-radius: var(--tds-radius-lg);
     border-bottom-right-radius: var(--tds-radius-lg);
     margin: 0 calc(var(--tds-space-4) * -1) var(--tds-space-2);
     padding: var(--tds-space-5) var(--tds-space-4);
   }
 
-  .hero-band h2,
-  .top-section h2 {
+  .hero-band h2 {
     font-size: 22px;
   }
 

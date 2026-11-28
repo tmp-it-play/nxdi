@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatNumber } from "@/lib/format";
+import { kstDateKey } from "@/lib/roadmap";
 import type { MarketCandle } from "@/lib/types";
 
 type ChartPoint = {
@@ -12,46 +13,45 @@ type ChartPoint = {
 type ValueFormat = "number" | "krw" | "usd" | "percent";
 type DateGranularity = "day" | "month";
 
+// Chart dates follow the Korean calendar so server render, browser and KRX candles agree.
+// shortcut: a US stock's in-progress weekly/monthly candle is stamped at its last trade time, so after 15:00Z it shows the next KST date; convert with Yahoo's exchangeTimezoneName on the server if that label matters.
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("ko-KR", {
     month: "short",
-    day: "numeric"
+    day: "numeric",
+    timeZone: "Asia/Seoul"
   }).format(new Date(value));
 }
 
-function formatExactDate(value: string, granularity: DateGranularity) {
+export function formatExactDate(value: string, granularity: DateGranularity) {
   if (granularity === "month") {
     return new Intl.DateTimeFormat("ko-KR", {
       year: "numeric",
-      month: "long"
+      month: "long",
+      timeZone: "Asia/Seoul"
     }).format(new Date(value));
   }
 
   return new Intl.DateTimeFormat("ko-KR", {
     year: "numeric",
     month: "long",
-    day: "numeric"
+    day: "numeric",
+    timeZone: "Asia/Seoul"
   }).format(new Date(value));
 }
 
-function formatAxisDate(value: string, showYear: boolean, granularity: DateGranularity) {
-  const date = new Date(value);
+export function formatAxisDate(value: string, showYear: boolean, granularity: DateGranularity) {
+  const [year, month, day] = kstDateKey(new Date(value)).split("-").map(Number);
   if (granularity === "month") {
-    return showYear ? `${String(date.getFullYear()).slice(2)}.${date.getMonth() + 1}` : `${date.getMonth() + 1}월`;
+    return showYear ? `${String(year).slice(2)}.${month}` : `${month}월`;
   }
   if (showYear) {
-    return `${String(date.getFullYear()).slice(2)}.${date.getMonth() + 1}`;
+    return `${String(year).slice(2)}.${month}`;
   }
-  return `${date.getMonth() + 1}/${date.getDate()}`;
+  return `${month}/${day}`;
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("ko-KR", {
-    maximumFractionDigits: 2
-  }).format(value);
-}
-
-function formatValue(value: number, format: ValueFormat) {
+export function formatValue(value: number, format: ValueFormat) {
   if (format === "krw") return formatCurrency(value, "KRW");
   if (format === "usd") return formatCurrency(value, "USD");
   if (format === "percent") return `${formatNumber(value * 100)}%`;
@@ -63,17 +63,13 @@ export function CandleChart({
   size = "compact",
   label,
   valueFormat = "number",
-  dateGranularity = "day",
-  minBodyHeight = 2,
-  bodyRadius
+  dateGranularity = "day"
 }: {
   candles: MarketCandle[];
   size?: "compact" | "detail";
   label?: string;
   valueFormat?: ValueFormat;
   dateGranularity?: DateGranularity;
-  minBodyHeight?: number;
-  bodyRadius?: number;
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -188,7 +184,7 @@ export function CandleChart({
     activeIndex !== null ? x(activeIndex) + metrics.candleWidth / 2 : 0;
   const axisY = metrics.height - metrics.bottomPadding;
   const spansMultipleYears =
-    new Date(candles.at(-1)!.date).getFullYear() !== new Date(candles[0].date).getFullYear();
+    kstDateKey(new Date(candles.at(-1)!.date)).slice(0, 4) !== kstDateKey(new Date(candles[0].date)).slice(0, 4);
   const axisTickIndices = [...new Set(
     candles.length <= 4
       ? candles.map((_, index) => index)
@@ -237,7 +233,7 @@ export function CandleChart({
           const openY = y(candle.open);
           const closeY = y(candle.close);
           const rawBodyHeight = Math.abs(openY - closeY);
-          const bodyHeight = Math.max(minBodyHeight, rawBodyHeight);
+          const bodyHeight = Math.max(2, rawBodyHeight);
           const centeredBodyY = Math.min(openY, closeY) - (bodyHeight - rawBodyHeight) / 2;
           const bodyY = Math.max(
             metrics.topPadding,
@@ -266,7 +262,7 @@ export function CandleChart({
                 y={bodyY}
                 width={metrics.candleWidth}
                 height={bodyHeight}
-                rx={bodyRadius ?? (metrics.dense ? 0.8 : 2)}
+                rx={metrics.dense ? 0.8 : 2}
               />
             </g>
           );

@@ -320,7 +320,6 @@ export async function intentsReadModel(userId: string) {
 
 export async function adminDashboardReadModel() {
   const roadmapToday = kstDateKey();
-  const roadmapHorizon = roadmapHorizonEndDate(roadmapToday);
   const [store, portfolio, dividendRecords, monthlyDividendRecords, disclosures, roadmapEvents, payoutRows, payoutModes] = await Promise.all([
     readStore(),
     getManualPortfolioOverview(),
@@ -388,7 +387,6 @@ export async function adminDashboardReadModel() {
     disclosures,
     roadmapEvents,
     roadmapToday,
-    roadmapHorizon,
     dividendPrincipalsByMonth,
     investorBalances: investorBalances(store, payoutRows, payoutModes),
     policy: productPolicyDto()

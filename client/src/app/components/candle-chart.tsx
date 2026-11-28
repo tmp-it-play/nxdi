@@ -16,8 +16,8 @@ import type {
   MouseEventParams,
   Time
 } from "lightweight-charts";
-import { CandleChart as SvgCandleChart } from "@/app/components/stock-chart";
-import { formatCurrency } from "@/lib/format";
+import { CandleChart as SvgCandleChart, formatAxisDate, formatExactDate, formatValue } from "@/app/components/stock-chart";
+import { kstDateKey } from "@/lib/roadmap";
 import type { MarketCandle } from "@/lib/types";
 
 type ValueFormat = "number" | "krw" | "usd" | "percent";
@@ -25,7 +25,6 @@ type DateGranularity = "day" | "month";
 
 type CandleChartProps = {
   candles: MarketCandle[];
-  size?: "compact" | "detail";
   label?: string;
   valueFormat?: ValueFormat;
   dateGranularity?: DateGranularity;
@@ -35,47 +34,6 @@ type NormalizedCandle = MarketCandle & {
   date: string;
   time: BusinessDay;
 };
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("ko-KR", {
-    maximumFractionDigits: 2
-  }).format(value);
-}
-
-function formatValue(value: number, format: ValueFormat) {
-  if (format === "krw") return formatCurrency(value, "KRW");
-  if (format === "usd") return formatCurrency(value, "USD");
-  if (format === "percent") return `${formatNumber(value * 100)}%`;
-  return formatNumber(value);
-}
-
-function formatExactDate(value: string, granularity: DateGranularity) {
-  if (granularity === "month") {
-    return new Intl.DateTimeFormat("ko-KR", {
-      year: "numeric",
-      month: "long",
-      timeZone: "UTC"
-    }).format(new Date(value));
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC"
-  }).format(new Date(value));
-}
-
-function formatAxisDate(value: string, showYear: boolean, granularity: DateGranularity) {
-  const date = new Date(value);
-  if (granularity === "month") {
-    return showYear ? `${String(date.getUTCFullYear()).slice(2)}.${date.getUTCMonth() + 1}` : `${date.getUTCMonth() + 1}월`;
-  }
-  if (showYear) {
-    return `${String(date.getUTCFullYear()).slice(2)}.${date.getUTCMonth() + 1}`;
-  }
-  return `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
-}
 
 function parseBusinessDay(value: string): BusinessDay | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
@@ -106,7 +64,9 @@ function normalizeCandles(candles: MarketCandle[]) {
   const uniqueCandles = new Map<string, NormalizedCandle>();
 
   for (const candle of candles) {
-    const time = parseBusinessDay(candle.date);
+    // KRX weekly/monthly candles are stamped at KST midnight, i.e. 15:00Z of the previous day.
+    const stamp = new Date(candle.date);
+    const time = Number.isNaN(stamp.getTime()) ? null : parseBusinessDay(kstDateKey(stamp));
     if (
       !time
       || ![candle.open, candle.high, candle.low, candle.close].every(Number.isFinite)
@@ -135,7 +95,6 @@ function candleTone(candle: MarketCandle) {
 export function CandleChart(props: CandleChartProps) {
   const {
     candles,
-    size = "compact",
     label = "캔들 차트",
     valueFormat = "number",
     dateGranularity = "day"
@@ -166,7 +125,7 @@ export function CandleChart(props: CandleChartProps) {
   );
 
   useEffect(() => {
-    if (size !== "detail" || normalizedCandles.length === 0) return;
+    if (normalizedCandles.length === 0) return;
 
     let disposed = false;
     let chart: IChartApi | null = null;
@@ -309,11 +268,7 @@ export function CandleChart(props: CandleChartProps) {
       disposed = true;
       destroyChart();
     };
-  }, [dateGranularity, normalizedCandles, size, spansMultipleYears, valueFormat]);
-
-  if (size !== "detail") {
-    return <SvgCandleChart {...props} />;
-  }
+  }, [dateGranularity, normalizedCandles, spansMultipleYears, valueFormat]);
 
   if (normalizedCandles.length === 0) {
     return <div className="market-chart empty-chart">차트 데이터 없음</div>;
