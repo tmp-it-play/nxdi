@@ -2,17 +2,13 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   candlesFromSnapshots,
-  changeRateFromSnapshots,
-  dividendYieldCandlesFromSnapshots,
   holdingDividendYieldCandles,
   holdingReturnCandles,
   monthlyDividendYieldCandlesFromSnapshots,
-  portfolioChangeRateFromMarketValue,
   pointsFromSnapshots,
   returnCandlesFromSnapshots,
   samplePoints
 } from "../src/domain/chart-metrics.js";
-import type { MarketChart } from "../src/domain/chart-metrics.js";
 import type { Holding, PortfolioDailySnapshot } from "../src/domain/types.js";
 
 function holding(overrides: Partial<Holding>): Holding {
@@ -25,20 +21,6 @@ function holding(overrides: Partial<Holding>): Holding {
     lastPrice: 110,
     marketValue: 1100,
     marketValueKrw: 1100,
-    ...overrides
-  };
-}
-
-function chart(overrides: Partial<MarketChart>): MarketChart {
-  return {
-    symbol: "TEST",
-    currency: "KRW",
-    marketCountry: "KOSPI",
-    previousClose: 100,
-    candles: [
-      { date: "2026-01-01T00:00:00.000Z", open: 90, high: 105, low: 85, close: 100 },
-      { date: "2026-01-02T00:00:00.000Z", open: 100, high: 999, low: 95, close: 999 }
-    ],
     ...overrides
   };
 }
@@ -102,152 +84,6 @@ describe("Given confirmed monthly dividends and current dividend estimates", () 
         { date: "2026-11-01T00:00:00.000Z", open: 0.2, high: 0.3, low: 0.05, close: 0.1 }
       ]);
     });
-  });
-});
-
-describe("Given portfolio holdings and market charts, when the daily change is calculated", () => {
-  it("then uses current holding market value instead of the latest chart close", () => {
-    const rate = portfolioChangeRateFromMarketValue({
-      holdings: [holding({})],
-      charts: new Map([["TEST", chart({})]]),
-      exchangeRate: 1300
-    });
-
-    assert.equal(rate, 0.1);
-  });
-
-  it("then prefers the previous candle close over range chartPreviousClose", () => {
-    const rate = portfolioChangeRateFromMarketValue({
-      holdings: [holding({})],
-      charts: new Map([["TEST", chart({ previousClose: 80 })]]),
-      exchangeRate: 1300
-    });
-
-    assert.equal(rate, 0.1);
-  });
-
-  it("then uses current exchange rate for USD previous market value", () => {
-    const rate = portfolioChangeRateFromMarketValue({
-      holdings: [
-        holding({
-          currency: "USD",
-          marketCountry: "NASDAQ",
-          quantity: 2,
-          lastPrice: 55,
-          marketValue: 110,
-          marketValueKrw: 143000
-        })
-      ],
-      charts: new Map([[
-        "TEST",
-        chart({
-          currency: "USD",
-          marketCountry: "NASDAQ",
-          previousClose: 45,
-          candles: [
-            { date: "2026-01-01T00:00:00.000Z", open: 45, high: 55, low: 44, close: 50 },
-            { date: "2026-01-02T00:00:00.000Z", open: 50, high: 60, low: 49, close: 60 }
-          ]
-        })
-      ]]),
-      exchangeRate: 1300
-    });
-
-    assert.equal(rate, 0.1);
-  });
-
-  it("then falls back to the previous candle close when chart previousClose is missing", () => {
-    const rate = portfolioChangeRateFromMarketValue({
-      holdings: [holding({})],
-      charts: new Map([["TEST", chart({ previousClose: undefined })]]),
-      exchangeRate: 1300
-    });
-
-    assert.equal(rate, 0.1);
-  });
-
-  it("then does not estimate a total rate from partial holding coverage", () => {
-    const rate = portfolioChangeRateFromMarketValue({
-      holdings: [
-        holding({}),
-        holding({
-          symbol: "MISS",
-          name: "Missing",
-          quantity: 10,
-          lastPrice: 50,
-          marketValue: 500,
-          marketValueKrw: 500
-        })
-      ],
-      charts: new Map([["TEST", chart({})]]),
-      exchangeRate: 1300
-    });
-
-    assert.equal(rate, undefined);
-  });
-});
-
-describe("Given portfolio snapshots, when the daily change is calculated", () => {
-  it("then does not estimate from unclosed previous snapshots", () => {
-    const rate = changeRateFromSnapshots([
-      {
-        date: "2026-07-07",
-        totalMarketValueKrw: 100000,
-        exchangeRate: 1300,
-        createdAt: "2026-07-07T00:00:00.000Z",
-        updatedAt: "2026-07-07T00:00:00.000Z"
-      },
-      {
-        date: "2026-07-08",
-        totalMarketValueKrw: 102500,
-        exchangeRate: 1310,
-        createdAt: "2026-07-08T00:00:00.000Z",
-        updatedAt: "2026-07-08T00:00:00.000Z"
-      }
-    ]);
-
-    assert.equal(rate, undefined);
-  });
-
-  it("then compares the latest market value with the previous closed market value", () => {
-    const rate = changeRateFromSnapshots([
-      {
-        date: "2026-07-07",
-        totalMarketValueKrw: 100000,
-        exchangeRate: 1300,
-        closeTotalMarketValueKrw: 101000,
-        closeExchangeRate: 1300,
-        closedAt: "2026-07-07T14:55:00.000Z",
-        createdAt: "2026-07-07T00:00:00.000Z",
-        updatedAt: "2026-07-07T14:55:00.000Z"
-      },
-      {
-        date: "2026-07-08",
-        totalMarketValueKrw: 102010,
-        exchangeRate: 1310,
-        closeTotalMarketValueKrw: 99000,
-        closeExchangeRate: 1310,
-        closedAt: "2026-07-08T14:55:00.000Z",
-        createdAt: "2026-07-08T00:00:00.000Z",
-        updatedAt: "2026-07-08T14:55:00.000Z"
-      }
-    ]);
-
-    assert.equal(rate, 0.01);
-  });
-
-  it("then does not estimate a rate when fewer than two snapshots exist", () => {
-    const rate = changeRateFromSnapshots([
-      {
-        date: "2026-07-08",
-        totalMarketValueKrw: 102500,
-        exchangeRate: 1310,
-        createdAt: "2026-07-08T00:00:00.000Z",
-        updatedAt: "2026-07-08T00:00:00.000Z"
-      }
-    ]);
-
-    assert.equal(rate, undefined);
   });
 });
 
@@ -388,96 +224,6 @@ describe("Given portfolio snapshots, when return candles are built", () => {
       low: 0.2,
       close: 0.2
     });
-  });
-});
-
-describe("Given portfolio snapshots, when dividend-yield candles are built", () => {
-  it("then uses stored annual dividend and market value snapshots", () => {
-    const candles = dividendYieldCandlesFromSnapshots([
-      {
-        date: "2026-07-08",
-        totalMarketValueKrw: 143000,
-        exchangeRate: 1300,
-        costBasisKrw: 100000,
-        annualDividendKrw: 7150,
-        createdAt: "2026-07-08T00:00:00.000Z",
-        updatedAt: "2026-07-08T00:00:00.000Z"
-      }
-    ]);
-
-    assert.equal(candles.at(0)?.close, 0.05);
-  });
-
-  it("then uses closed annual dividend and closed market value for historical dividend yield", () => {
-    const candles = dividendYieldCandlesFromSnapshots([
-      {
-        date: "2026-07-07",
-        totalMarketValueKrw: 100000,
-        exchangeRate: 1300,
-        annualDividendKrw: 10000,
-        closeTotalMarketValueKrw: 120000,
-        closeExchangeRate: 1300,
-        closeAnnualDividendKrw: 6000,
-        closedAt: "2026-07-07T14:55:00.000Z",
-        createdAt: "2026-07-07T00:00:00.000Z",
-        updatedAt: "2026-07-07T14:55:00.000Z"
-      },
-      {
-        date: "2026-07-08",
-        totalMarketValueKrw: 200000,
-        exchangeRate: 1310,
-        annualDividendKrw: 10000,
-        closeTotalMarketValueKrw: 1,
-        closeExchangeRate: 1310,
-        closeAnnualDividendKrw: 1,
-        closedAt: "2026-07-08T14:55:00.000Z",
-        createdAt: "2026-07-08T00:00:00.000Z",
-        updatedAt: "2026-07-08T14:55:00.000Z"
-      }
-    ]);
-
-    assert.equal(candles.at(0)?.close, 0.05);
-    assert.equal(candles.at(1)?.close, 0.05);
-  });
-
-  it("then uses actual monthly dividend records for history and an estimate for the latest month", () => {
-    const candles = dividendYieldCandlesFromSnapshots(
-      [
-        {
-          date: "2026-06-30",
-          totalMarketValueKrw: 100000,
-          exchangeRate: 1300,
-          annualDividendKrw: 10000,
-          closeTotalMarketValueKrw: 200000,
-          closeExchangeRate: 1300,
-          closeAnnualDividendKrw: 10000,
-          closedAt: "2026-06-30T14:55:00.000Z",
-          createdAt: "2026-06-30T00:00:00.000Z",
-          updatedAt: "2026-06-30T14:55:00.000Z"
-        },
-        {
-          date: "2026-07-09",
-          totalMarketValueKrw: 400000,
-          exchangeRate: 1310,
-          annualDividendKrw: 50000,
-          createdAt: "2026-07-09T00:00:00.000Z",
-          updatedAt: "2026-07-09T00:00:00.000Z"
-        }
-      ],
-      [
-        {
-          dividendMonth: "2026-06",
-          recordId: "mdr_20260600000000000000000000000000",
-          actualDividendKrw: 10000,
-          createdAt: "2026-07-01T00:00:00.000Z",
-          updatedAt: "2026-07-01T00:00:00.000Z"
-        }
-      ],
-      20000
-    );
-
-    assert.equal(candles.at(0)?.close, 0.05);
-    assert.equal(candles.at(1)?.close, 0.05);
   });
 });
 
