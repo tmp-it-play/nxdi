@@ -34,14 +34,6 @@ export type RoadmapEvent = {
   };
 };
 
-export type CreateRoadmapEventInput = {
-  disclosureId: string;
-  eventDate: string;
-  kind: RoadmapEventKind;
-  category: RoadmapEventCategory;
-  label?: string;
-};
-
 export type UpdateRoadmapEventInput = {
   eventDate?: string;
   kind?: RoadmapEventKind;
@@ -57,8 +49,6 @@ export type RoadmapEventDateGroup = {
 export const ROADMAP_HORIZON_DAYS = 30;
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-const ROADMAP_KIND_SET = new Set<string>(ROADMAP_EVENT_KINDS);
-const ROADMAP_CATEGORY_SET = new Set<string>(ROADMAP_EVENT_CATEGORIES);
 
 function isLeapYear(year: number) {
   return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
@@ -104,16 +94,10 @@ function formatDateKey(date: Date) {
   return `${String(year).padStart(4, "0")}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 }
 
-export function isValidDateKey(value: string) {
-  return dateParts(value) !== null;
-}
-
 export function kstDateKey(date = new Date()) {
   if (Number.isNaN(date.getTime())) throw new RangeError("Invalid date");
   return new Date(date.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10);
 }
-
-export const kstTodayDateKey = kstDateKey;
 
 export function addDaysToDateKey(dateKey: string, days: number) {
   if (!Number.isSafeInteger(days)) throw new RangeError("days must be a safe integer");
@@ -125,10 +109,6 @@ export function addDaysToDateKey(dateKey: string, days: number) {
 
 export function roadmapHorizonEndDate(fromDateKey = kstDateKey()) {
   return addDaysToDateKey(fromDateKey, ROADMAP_HORIZON_DAYS);
-}
-
-export function roadmapInitialStartDate(fromDateKey = kstDateKey()) {
-  return addDaysToDateKey(fromDateKey, -ROADMAP_HORIZON_DAYS);
 }
 
 export function roadmapDateKeys(
@@ -177,14 +157,6 @@ export function roadmapKindLabel(kind: RoadmapEventKind) {
 
 export function roadmapCategoryLabel(category: RoadmapEventCategory) {
   return ROADMAP_CATEGORY_LABELS[category];
-}
-
-export function normalizeRoadmapEventKind(value: string): RoadmapEventKind {
-  return ROADMAP_KIND_SET.has(value) ? (value as RoadmapEventKind) : "PLANNED";
-}
-
-export function normalizeRoadmapEventCategory(value: string): RoadmapEventCategory {
-  return ROADMAP_CATEGORY_SET.has(value) ? (value as RoadmapEventCategory) : "OTHER";
 }
 
 export function sortRoadmapEvents(events: readonly RoadmapEvent[]) {

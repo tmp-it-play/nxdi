@@ -203,7 +203,6 @@ export type AdminDashboardResponse = {
   disclosures: Disclosure[];
   roadmapEvents: RoadmapEvent[];
   roadmapToday: string;
-  roadmapHorizon: string;
   dividendPrincipalsByMonth: Record<string, DividendAllocationIntentDto[]>;
   investorBalances: InvestorBalanceDto[];
   policy: ProductPolicyDto;
