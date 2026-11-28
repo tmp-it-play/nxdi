@@ -16,7 +16,8 @@ import type {
   MouseEventParams,
   Time
 } from "lightweight-charts";
-import { CandleChart as SvgCandleChart, formatValue } from "@/app/components/stock-chart";
+import { CandleChart as SvgCandleChart, formatAxisDate, formatExactDate, formatValue } from "@/app/components/stock-chart";
+import { kstDateKey } from "@/lib/roadmap";
 import type { MarketCandle } from "@/lib/types";
 
 type ValueFormat = "number" | "krw" | "usd" | "percent";
@@ -33,34 +34,6 @@ type NormalizedCandle = MarketCandle & {
   date: string;
   time: BusinessDay;
 };
-
-function formatExactDate(value: string, granularity: DateGranularity) {
-  if (granularity === "month") {
-    return new Intl.DateTimeFormat("ko-KR", {
-      year: "numeric",
-      month: "long",
-      timeZone: "UTC"
-    }).format(new Date(value));
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC"
-  }).format(new Date(value));
-}
-
-function formatAxisDate(value: string, showYear: boolean, granularity: DateGranularity) {
-  const date = new Date(value);
-  if (granularity === "month") {
-    return showYear ? `${String(date.getUTCFullYear()).slice(2)}.${date.getUTCMonth() + 1}` : `${date.getUTCMonth() + 1}월`;
-  }
-  if (showYear) {
-    return `${String(date.getUTCFullYear()).slice(2)}.${date.getUTCMonth() + 1}`;
-  }
-  return `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
-}
 
 function parseBusinessDay(value: string): BusinessDay | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
@@ -91,7 +64,9 @@ function normalizeCandles(candles: MarketCandle[]) {
   const uniqueCandles = new Map<string, NormalizedCandle>();
 
   for (const candle of candles) {
-    const time = parseBusinessDay(candle.date);
+    // KRX weekly/monthly candles are stamped at KST midnight, i.e. 15:00Z of the previous day.
+    const stamp = new Date(candle.date);
+    const time = Number.isNaN(stamp.getTime()) ? null : parseBusinessDay(kstDateKey(stamp));
     if (
       !time
       || ![candle.open, candle.high, candle.low, candle.close].every(Number.isFinite)
